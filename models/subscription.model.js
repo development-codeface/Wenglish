@@ -5,7 +5,6 @@ const subscriptionSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: { type: String, required: true },
     image: { type: String },
-    discount: { type: Number, default: 0 },
     price: { type: Number, required: true },
 
     duration: {
@@ -16,6 +15,8 @@ const subscriptionSchema = new mongoose.Schema(
     days: { type: Number, required: true },
 
     isActive: { type: Boolean, default: true },
+
+    discount: { type: mongoose.Schema.Types.ObjectId, ref: "Discount" },
   },
   { timestamps: true }
 );
