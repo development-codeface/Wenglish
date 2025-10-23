@@ -21,4 +21,19 @@ export const adminMiddleware = (req, res, next) => {
   next();
 };
 
+export const requireSubscription = async (req, res, next) => {
+  const user = req.user;
+  if (!user || !user.subscription?.isActive) {
+    return res.status(403).json({ message: "Subscription required" });
+  }
+
+  const now = new Date();
+  if (new Date(user.subscription.endDate) < now) {
+    return res.status(403).json({ message: "Subscription expired" });
+  }
+
+  next();
+};
+
+
 
