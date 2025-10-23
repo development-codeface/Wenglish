@@ -7,6 +7,7 @@ import { initChatSocket } from './sockets/websocket.js';
 import lessonRoutes from './routes/lesson.routes.js'
 import chapterRoutes from './routes/chapter.routes.js'
 import history from './routes/chat.routes.js'
+import quiz from './routes/quiz.routes.js'
 
 dotenv.config();
 connectDB();
@@ -17,6 +18,7 @@ app.use("/api/users", authRoutes);
 app.use("/api/lessons", lessonRoutes);
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/history",history );
+app.use("/api/quizzes",quiz );
 const server = http.createServer(app);
 
 initChatSocket(server);
