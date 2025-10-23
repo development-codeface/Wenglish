@@ -7,6 +7,14 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     phone: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    subscription: {
+      plan: { type: mongoose.Schema.Types.ObjectId, ref: "Subscription" },
+      startDate: { type: Date },
+      endDate: { type: Date },
+      isActive: { type: Boolean, default: false },
+    },
+    lastActive: { type: Date, default: null },
+    profileImage: { type: String, default: "" },
   },
   { timestamps: true }
 );
