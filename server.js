@@ -9,6 +9,7 @@ import chapterRoutes from './routes/chapter.routes.js'
 import history from './routes/chat.routes.js'
 import quiz from './routes/quiz.routes.js'
 import subscriptions from './routes/subscription.routes.js'
+import discounts from './routes/discount.routes.js'
 
 dotenv.config();
 connectDB();
@@ -21,6 +22,7 @@ app.use("/api/chapters", chapterRoutes);
 app.use("/api/history",history );
 app.use("/api/quizzes",quiz );
 app.use("/api/subscriptions",subscriptions );
+app.use("/api/discounts",discounts );
 const server = http.createServer(app);
 
 initChatSocket(server);
