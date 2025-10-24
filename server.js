@@ -10,19 +10,23 @@ import history from './routes/chat.routes.js'
 import quiz from './routes/quiz.routes.js'
 import subscriptions from './routes/subscription.routes.js'
 import discounts from './routes/discount.routes.js'
+import chatCategory from './routes/chatCategory.routes.js'
+import user from './routes/user.routes.js'
 
 dotenv.config();
 connectDB();
 
 const app = express();
 app.use(express.json());
-app.use("/api/users", authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/lessons", lessonRoutes);
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/history",history );
 app.use("/api/quizzes",quiz );
 app.use("/api/subscriptions",subscriptions );
 app.use("/api/discounts",discounts );
+app.use("/api/chat-categories",chatCategory );
+app.use("/api/users",user );
 const server = http.createServer(app);
 
 initChatSocket(server);
