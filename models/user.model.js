@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema(
     },
     lastActive: { type: Date, default: null },
     profileImage: { type: String, default: "" },
+    languagePreference: { type: String },
+    whyLearn: { type: [String] },
   },
   { timestamps: true }
 );
