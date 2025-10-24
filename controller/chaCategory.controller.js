@@ -1,5 +1,7 @@
 import ChatCategory from '../models/chatCategories.model.js';
 import { getCategoryChatResponse } from '../services/llmService.js';
+import ChatHistory from '../models/chatHistory.model.js'; 
+
 
 // Create a new chat category
 export const createCategory = async (req, res) => {
@@ -65,13 +67,40 @@ export const deleteCategory = async (req, res) => {
 export const categoryChat = async (req, res) => {
   try {
     const { category, message } = req.body;
-
     if (!category || !message) {
       return res.status(400).json({ error: 'Category and message are required' });
     }
 
     const { reply, correctedInput } = await getCategoryChatResponse(category, message);
+
+    const chatRecord = new ChatHistory({
+      user: req.user._id,  // save user id from auth middleware
+      category,
+      userMessage: message,
+      botReply: reply,
+      correctedInput,
+    });
+
+    await chatRecord.save();
+
     res.status(200).json({ reply, correctedInput });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+export const getChatHistory = async (req, res) => {
+  try {
+    const filter = { user: req.user._id }; 
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+
+    const history = await ChatHistory.find(filter)
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
