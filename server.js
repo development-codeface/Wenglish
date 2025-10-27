@@ -12,6 +12,7 @@ import subscriptions from './routes/subscription.routes.js'
 import discounts from './routes/discount.routes.js'
 import chatCategory from './routes/chatCategory.routes.js'
 import user from './routes/user.routes.js'
+import otp from './routes/otp.rotes.js'
 
 dotenv.config();
 connectDB();
@@ -27,6 +28,7 @@ app.use("/api/subscriptions",subscriptions );
 app.use("/api/discounts",discounts );
 app.use("/api/chat-categories",chatCategory );
 app.use("/api/users",user );
+app.use("/api/otp", otp );
 const server = http.createServer(app);
 
 initChatSocket(server);

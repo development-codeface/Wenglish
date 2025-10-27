@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema(
     profileImage: { type: String, default: "" },
     languagePreference: { type: String },
     whyLearn: { type: [String] },
+    isVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
