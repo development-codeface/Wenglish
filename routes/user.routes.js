@@ -8,7 +8,7 @@ router.post("/subscribe",authMiddleware, subscribeUser);
 router.put("/:id", authMiddleware, updateUser);
 router.delete("/:id", authMiddleware, deleteUser);
 router.get("/:id", authMiddleware, getUserById);
-router.get("/", authMiddleware, getAllUsers);
+router.get("/", getAllUsers);
 
 
 export default router;
