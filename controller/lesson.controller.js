@@ -13,6 +13,7 @@ export const createLesson = async (req, res) => {
       question,
       correctAnswer,
       order,
+      options,
     } = req.body;
     const lesson = new Lesson({
       chapterId,
@@ -23,6 +24,7 @@ export const createLesson = async (req, res) => {
       question,
       correctAnswer,
       order,
+      options,
     });
     await lesson.save();
     res.status(201).json(lesson);
@@ -98,3 +100,50 @@ export const answerLessonQuestion = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+export const updateLesson = async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const {
+      title,
+      description,
+      videoUrl,
+      thumbnail,
+      question,
+      options,
+      correctAnswer,
+      order,
+    } = req.body;
+
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+
+    // Validate options if they are being updated
+    if (options) {
+      if (!Array.isArray(options) || options.length < 2) {
+        return res.status(400).json({ message: "Options must contain at least two choices" });
+      }
+
+      // Ensure correct answer is part of the updated options
+      if (correctAnswer && !options.includes(correctAnswer)) {
+        return res.status(400).json({ message: "Correct answer must be one of the options" });
+      }
+
+      lesson.options = options;
+    }
+
+    if (title) lesson.title = title;
+    if (description) lesson.description = description;
+    if (videoUrl) lesson.videoUrl = videoUrl;
+    if (thumbnail) lesson.thumbnail = thumbnail;
+    if (question) lesson.question = question;
+    if (correctAnswer) lesson.correctAnswer = correctAnswer;
+    if (order !== undefined) lesson.order = order;
+
+    await lesson.save();
+
+    res.status(200).json({ message: "Lesson updated successfully", lesson });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+

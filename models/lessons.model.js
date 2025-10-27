@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 
 const lessonSchema = new mongoose.Schema({
-  chapterId: { type: mongoose.Schema.Types.ObjectId, ref: "Chapter", required: true },
+  chapterId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Chapter",
+    required: true,
+  },
   title: { type: String, required: true },
   description: String,
   videoUrl: { type: String, required: true },
@@ -9,7 +13,10 @@ const lessonSchema = new mongoose.Schema({
   question: { type: String, required: true },
   correctAnswer: { type: String, required: true },
   order: { type: Number, required: true },
-  
+  options: {
+    type: [String],
+    required: true,
+  },
 });
 
 export default mongoose.model("Lesson", lessonSchema);
