@@ -13,11 +13,15 @@ import discounts from './routes/discount.routes.js'
 import chatCategory from './routes/chatCategory.routes.js'
 import user from './routes/user.routes.js'
 import otp from './routes/otp.rotes.js'
+import middleware from "i18next-http-middleware"
+import i18n from './utils/i18n.js';
 
 dotenv.config();
 connectDB();
 
+
 const app = express();
+app.use(middleware.handle(i18n));
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/lessons", lessonRoutes);

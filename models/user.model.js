@@ -15,7 +15,11 @@ const userSchema = new mongoose.Schema(
     },
     lastActive: { type: Date, default: null },
     profileImage: { type: String, default: "" },
-    languagePreference: { type: String },
+    languagePreference: {
+      type: String,
+      enum: ["en", "ml", "te", "hi", "ta", "kn"],
+      default: "en",
+    },
     whyLearn: { type: [String] },
     isVerified: { type: Boolean, default: false },
   },
