@@ -1,6 +1,8 @@
 import Lesson from "../models/lessons.model.js";
 import Chapter from "../models/chapter.model.js";
 import UserProgress from "../models/userProgress.model.js";
+import User from "../models/user.model.js";
+import { initializeUserProgress } from "./progress.controller.js";
 
 export const createLesson = async (req, res) => {
   try {
@@ -37,16 +39,27 @@ export const getLessonsByChapter = async (req, res) => {
   const { chapterId } = req.params;
   const userId = req.user.id;
 
+  const user = await User.findById(userId);
+  const language = user.languagePreference || "en";
+
   const progress = await UserProgress.findOne({ userId });
   const lessons = await Lesson.find({ chapterId }).sort({ order: 1 });
 
-  const lessonsWithLock = lessons.map((lesson) => ({
-    ...lesson._doc,
-    locked: !progress?.unlockedLessons.includes(lesson._id),
-  }));
+  const lessonsWithTranslation = lessons.map((lesson) => {
+    const getText = (field) => (lesson[field]?.[language] || lesson[field]?.en || "");
+    return {
+      _id: lesson._id,
+      title: getText("title"),
+      description: getText("description"),
+      question: getText("question"),
+      options: lesson.options?.map((opt) => opt?.[language] || opt?.en || ""),
+      locked: !progress?.unlockedLessons.includes(lesson._id),
+    };
+  });
 
-  res.json(lessonsWithLock);
+  res.json(lessonsWithTranslation);
 };
+
 
 export const answerLessonQuestion = async (req, res) => {
   try {
