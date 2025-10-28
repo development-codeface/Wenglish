@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import User from "../models/user.model.js";
+
 
 const model = new ChatGoogleGenerativeAI({
   model: "gemini-2.5-flash",
@@ -13,23 +15,23 @@ const conversationHistory = [
   new SystemMessage("You are a friendly and helpful AI assistant that replies in a conversational tone. Keep answers short and natural and no emojis.")
 ];
 
-const correctUserInput = async (input) => {
+const correctUserInput = async (input, language = "en") => {
   const correctionPrompt = [
     new SystemMessage(
-      `You are a kind English teacher helping young learners (ages 5–10).
-Fix grammar, spelling, and clarity without changing meaning.
-Explain things in a simple and friendly way.
+      `You are a kind language teacher helping students improve conversations in ${language}.
+If the user’s message is already correct, just say "✅ Looks good!" in ${language}.
+If there are mistakes, correct them.
 
 Always use this format:
 Corrected Sentence:
-👉 [corrected text]
+👉 [corrected text in ${language}]
 
-Explanation:
-- [short and simple reason 1]
-- [short and simple reason 2]
+Explanation (in ${language}):
+- [short reason 1]
+- [short reason 2]
 
-Avoid grammar jargon (like "past participle").
-Do not use emojis or complicated words.`
+Avoid grammar jargon or complicated terms.
+Never use emojis.`
     ),
     new HumanMessage(input),
   ];
@@ -38,27 +40,33 @@ Do not use emojis or complicated words.`
   return correctionResponse.content;
 };
 
-// --- Category Chat Response ---
-export const getCategoryChatResponse = async (category, userInput) => {
+export const getCategoryChatResponse = async (category, userInput, userId) => {
   try {
+    // Fetch user's preferred language from DB
+    const user = await User.findById(userId);
+    const language = user?.languagePreference || "en";
+
     const conversationHistory = [
       new SystemMessage(
         `You are a friendly AI assistant who talks about ${category}.
-Use simple, clear, and short sentences.
-If the user makes small grammar mistakes, fix them naturally in your reply.
-Never use emojis or sound too formal.`
+Your language for this chat is ${language}.
+Use short, natural sentences in ${language}.
+If the user makes mistakes, correct them naturally in ${language} without sounding robotic.`
       ),
     ];
 
-    const correctedInput = await correctUserInput(userInput);
+    // Correct the user input in their language
+    const correctedInput = await correctUserInput(userInput, language);
 
     conversationHistory.push(new HumanMessage(correctedInput));
 
+    // Get LLM response in that language
     const response = await model.invoke(conversationHistory);
 
     return {
       reply: response.content,
       correctedInput,
+      language,
     };
   } catch (error) {
     console.error("Error in category chat:", error);
