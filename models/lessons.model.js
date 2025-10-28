@@ -30,7 +30,7 @@ const lessonSchema = new mongoose.Schema({
   thumbnail: { type: String },
   question: multilingualField,
   options: [optionSchema],
-  correctAnswer: { type: String, required: true },
+  correctAnswer: multilingualField,
   order: { type: Number, required: true }
 });
 
