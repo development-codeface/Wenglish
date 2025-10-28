@@ -7,32 +7,21 @@ import  Subscription  from "../models/subscription.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import crypto from "crypto";
 import OTP from "../models/otp.model.js";
+import TempUser from "../models/tempUser.model.js";
 
 
 export const registerUser = async (req, res) => {
   try {
-    const { 
-      name, 
-      email, 
-      password, 
-      role, 
-      phone, 
-      profileImage, 
-      languagePreference, 
-      whyLearn 
-    } = req.body;
+    const { name, email, password, role, phone, profileImage, languagePreference, whyLearn } = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+    if (existingUser) return res.status(400).json({ message: "User already exists" });
 
-    // Hash the password
+    await TempUser.deleteOne({ email });
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
-    const user = await User.create({
+    await TempUser.create({
       name,
       email,
       password: hashedPassword,
@@ -40,35 +29,22 @@ export const registerUser = async (req, res) => {
       phone,
       profileImage: profileImage || "",
       languagePreference: languagePreference || "",
-      whyLearn: Array.isArray(whyLearn) ? whyLearn : [], // ensure array
-      subscription: {
-        plan: null,
-        startDate: null,
-        endDate: null,
-        isActive: false,
-      },
-      lastActive: new Date(),
-            isVerified: false,
-
+      whyLearn: Array.isArray(whyLearn) ? whyLearn : [],
     });
 
-    await initializeUserProgress(user._id);
+    // Generate and send OTP
     const otpCode = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
-
     await OTP.create({ email, otp: otpCode, expiresAt: otpExpiry });
-
     await sendEmail(email, "Verify Your Email", `Your OTP is ${otpCode}. It expires in 5 minutes.`);
 
-
-    const { password: _, ...userData } = user.toObject();
-
-    res.status(201).json({ message: "User registered successfully", user: userData });
+    res.status(200).json({ message: "OTP sent successfully. Please verify to complete registration." });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 
 export const loginUser = async (req, res) => {
