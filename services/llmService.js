@@ -90,3 +90,25 @@ export const getResponseFromLLM = async (message) => {
     return "Error generating response";
   }
 };
+export const getAlphabetLearningResponse = async (letter) => {
+  try {
+    const prompt = [
+      new SystemMessage(
+        `You are a kind teacher helping kids learn the alphabet.
+When the user gives you a letter, reply only in this format:
+[Letter] for [Word starting with that letter]
+
+Do not add explanations, fun facts, or any other text.
+Keep it simple and suitable for kids.
+`
+      ),
+      new HumanMessage(`Letter: ${letter}`)
+    ];
+
+    const response = await model.invoke(prompt);
+    return response.content;
+  } catch (error) {
+    console.error("Error generating alphabet response:", error);
+    return "Sorry, I couldn’t generate the learning content right now.";
+  }
+};

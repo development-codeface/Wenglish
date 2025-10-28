@@ -15,6 +15,7 @@ import user from './routes/user.routes.js'
 import otp from './routes/otp.rotes.js'
 import middleware from "i18next-http-middleware"
 import i18n from './utils/i18n.js';
+import atozRoutes from './routes/atoz.routes.js';
 
 dotenv.config();
 connectDB();
@@ -33,6 +34,7 @@ app.use("/api/discounts",discounts );
 app.use("/api/chat-categories",chatCategory );
 app.use("/api/users",user );
 app.use("/api/otp", otp );
+app.use("/api/atoz", atozRoutes); 
 const server = http.createServer(app);
 
 initChatSocket(server);
