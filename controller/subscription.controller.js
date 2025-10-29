@@ -1,4 +1,5 @@
-import  SubscriptionPlan  from "../models/subscription.model.js";
+import SubscriptionPlan from "../models/subscription.model.js";
+import User from "../models/user.model.js";
 
 // Create a new subscription plan
 export const createSubscriptionPlan = async (req, res) => {
@@ -11,11 +12,55 @@ export const createSubscriptionPlan = async (req, res) => {
   }
 };
 
-// Get all plans (populate discount)
+// Get all plans (localized for user language)
 export const getAllPlans = async (req, res) => {
   try {
+    const userLang = req.user?.languagePreference || "en";
+
     const plans = await SubscriptionPlan.find().populate("discount");
-    res.status(200).json(plans);
+
+    const localizedPlans = plans.map((plan) => ({
+      _id: plan._id,
+      title: plan.title[userLang] || plan.title.en,
+      description: plan.description[userLang] || plan.description.en,
+      image: plan.image,
+      price: plan.price,
+      duration: plan.duration,
+      days: plan.days,
+      isActive: plan.isActive,
+      discount: plan.discount,
+    }));
+
+    res.status(200).json(localizedPlans);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get plan by ID (localized)
+export const getPlanById = async (req, res) => {
+  try {
+    const user = await User.findById(req.user?._id);
+    const userLang = user?.languagePreference || "en";
+
+    const plan = await SubscriptionPlan.findById(req.params.id).populate(
+      "discount"
+    );
+    if (!plan) return res.status(404).json({ message: "Plan not found" });
+
+    const localized = {
+      _id: plan._id,
+      title: plan.title[userLang] || plan.title.en,
+      description: plan.description[userLang] || plan.description.en,
+      image: plan.image,
+      price: plan.price,
+      duration: plan.duration,
+      days: plan.days,
+      isActive: plan.isActive,
+      discount: plan.discount,
+    };
+
+    res.status(200).json(localized);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -34,7 +79,9 @@ export const updateSubscriptionPlan = async (req, res) => {
       return res.status(404).json({ message: "Subscription plan not found" });
     }
 
-    res.status(200).json({ message: "Subscription plan updated", plan: updatedPlan });
+    res
+      .status(200)
+      .json({ message: "Subscription plan updated", plan: updatedPlan });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -55,4 +102,3 @@ export const deleteSubscriptionPlan = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-

@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post("/", authMiddleware, adminMiddleware, createDiscount);
 
-router.get("/", getDiscounts);
+router.get("/",authMiddleware,getDiscounts);
 router.delete("/:id",authMiddleware,adminMiddleware, deleteDiscount);
 router.put("/:id", authMiddleware, adminMiddleware, updateDiscount);
 

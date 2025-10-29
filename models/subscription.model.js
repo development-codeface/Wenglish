@@ -1,9 +1,18 @@
 import mongoose from "mongoose";
 
+const multilingualField = {
+  en: { type: String, required: true },
+  hi: { type: String },
+  ta: { type: String },
+  te: { type: String },
+  kn: { type: String },
+  ml: { type: String },
+};
+
 const subscriptionSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    description: { type: String, required: true },
+    title: multilingualField,
+    description: multilingualField,
     image: { type: String },
     price: { type: Number, required: true },
 
@@ -15,7 +24,6 @@ const subscriptionSchema = new mongoose.Schema(
     days: { type: Number, required: true },
 
     isActive: { type: Boolean, default: true },
-
     discount: { type: mongoose.Schema.Types.ObjectId, ref: "Discount" },
   },
   { timestamps: true }

@@ -13,7 +13,7 @@ import { adminMiddleware, authMiddleware } from '../middlewares/auth.middleware.
 const router = express.Router();
 
 router.post('/', authMiddleware, adminMiddleware, createCategory);
-router.get('/', getAllCategories);
+router.get('/',authMiddleware, getAllCategories);
 router.get('/chat-history', authMiddleware, getChatHistory);  
 router.get('/:id', authMiddleware, getCategoryById);           
 router.put('/:id', authMiddleware, adminMiddleware, updateCategory);
