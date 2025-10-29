@@ -1,10 +1,18 @@
-
 import mongoose from "mongoose";
+
+const localizedFieldSchema = new mongoose.Schema({
+  en: { type: String, required: true }, 
+  hi: { type: String, required: true }, 
+  ta: { type: String, required: true }, 
+  te: { type: String, required: true }, 
+  kn: { type: String, required: true }, 
+  ml: { type: String, required: true }, 
+});
 
 const topicSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    description: { type: String, required: true },
+    title: { type: localizedFieldSchema, required: true },
+    description: { type: localizedFieldSchema, required: true },
     imageUrl: { type: String, required: true },
   },
   { timestamps: true }
