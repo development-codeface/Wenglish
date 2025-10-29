@@ -1,29 +1,40 @@
 import mongoose from "mongoose";
 
+const localizedStringSchema = new mongoose.Schema({
+  en: { type: String, required: true },
+  ml: { type: String, required: true },
+  hi: { type: String, required: true },
+  ta: { type: String, required: true },
+  te: { type: String, required: true },
+  kn: { type: String, required: true },
+});
+
+const optionSchema = new mongoose.Schema({
+  en: { type: String, required: true },
+  ml: { type: String, required: true },
+  hi: { type: String, required: true },
+  ta: { type: String, required: true },
+  te: { type: String, required: true },
+  kn: { type: String, required: true },
+});
+
 const quizSchema = new mongoose.Schema(
   {
     question: {
-      type: String,
+      type: localizedStringSchema,
       required: true,
-      trim: true,
     },
     options: {
-      type: [String],
+      type: [optionSchema],
       validate: {
         validator: (arr) => arr.length >= 2,
         message: "At least two options are required",
       },
       required: true,
     },
-    correctAnswers: {
-      type: [String],
+    correctAnswer: {
+      type: localizedStringSchema,
       required: true,
-      validate: {
-        validator: function (arr) {
-          return arr.every((ans) => this.options.includes(ans));
-        },
-        message: "Correct answers must be included in options",
-      },
     },
   },
   { timestamps: true }

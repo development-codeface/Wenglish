@@ -71,10 +71,10 @@ export const categoryChat = async (req, res) => {
       return res.status(400).json({ error: 'Category and message are required' });
     }
 
-    const { reply, correctedInput } = await getCategoryChatResponse(category, message);
+    const { reply, correctedInput } = await getCategoryChatResponse(category, message, req.user._id);
 
     const chatRecord = new ChatHistory({
-      user: req.user._id,  // save user id from auth middleware
+      user: req.user._id,  
       category,
       userMessage: message,
       botReply: reply,

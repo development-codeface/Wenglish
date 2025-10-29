@@ -66,13 +66,17 @@ export const answerLessonQuestion = async (req, res) => {
     const { lessonId } = req.params;
     const { answer } = req.body;
     const userId = req.user.id;
+      const user = await User.findById(userId);
+
 
     const lesson = await Lesson.findById(lessonId);
     if (!lesson) return res.status(404).json({ message: "Lesson not found" });
 
-    const isCorrect =
-      lesson.correctAnswer.trim().toLowerCase() ===
-      String(answer).trim().toLowerCase();
+    const lang = user.languagePreference || "en";
+const correct = lesson.correctAnswer[lang] || lesson.correctAnswer.en;
+const isCorrect =
+  correct.trim().toLowerCase() === String(answer).trim().toLowerCase();
+
     if (!isCorrect)
       return res.json({ correct: false, message: "Wrong answer" });
 
