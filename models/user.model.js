@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema(
     },
     whyLearn: { type: [String] },
     isVerified: { type: Boolean, default: false },
+    usageHistory: [{ type: Date }],
   },
   { timestamps: true }
 );
