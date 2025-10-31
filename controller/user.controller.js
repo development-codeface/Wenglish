@@ -32,7 +32,12 @@ export const subscribeUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { name, phone, profileImage, languagePreference, whyLearn } = req.body;
+    const { name, phone, languagePreference, whyLearn } = req.body;
+
+    let profileImage;
+    if (req.file) {
+      profileImage = `/uploads/profiles/${req.file.filename}`;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
@@ -42,7 +47,7 @@ export const updateUser = async (req, res) => {
           phone,
           profileImage,
           languagePreference,
-          whyLearn, // must be an array
+          whyLearn, 
           lastActive: new Date(),
         },
       },

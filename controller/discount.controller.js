@@ -3,7 +3,11 @@ import Discount from "../models/discount.model.js";
 // Create a new multilingual discount
 export const createDiscount = async (req, res) => {
   try {
-    const { title, description, image, discountPercentage, isActive } = req.body;
+    let { title, description, discountPercentage, isActive } = req.body;
+
+    // Parse multilingual fields if sent as JSON strings
+    if (typeof title === "string") title = JSON.parse(title);
+    if (typeof description === "string") description = JSON.parse(description);
 
     if (!title?.en || discountPercentage === undefined) {
       return res.status(400).json({
@@ -14,9 +18,9 @@ export const createDiscount = async (req, res) => {
     const discount = new Discount({
       title,
       description,
-      image,
       discountPercentage,
       isActive: isActive !== undefined ? isActive : true,
+      image: req.file ? `/uploads/discounts/${req.file.filename}` : "",
     });
 
     await discount.save();
@@ -70,13 +74,21 @@ export const getDiscountById = async (req, res) => {
 export const updateDiscount = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await Discount.findByIdAndUpdate(id, req.body, {
+    const updates = { ...req.body };
+
+    if (req.file) {
+      updates.image = `/uploads/images/${req.file.filename}`;
+    }
+
+    if (updates.title) updates.title = JSON.parse(updates.title);
+    if (updates.description) updates.description = JSON.parse(updates.description);
+
+    const updated = await Discount.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true,
     });
 
     if (!updated) return res.status(404).json({ message: "Discount not found" });
-
     res.status(200).json({ message: "Discount updated", discount: updated });
   } catch (err) {
     res.status(500).json({ message: err.message });
