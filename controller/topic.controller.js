@@ -3,13 +3,32 @@ import Topic from "../models/topic.model.js";
 // Create a new topic
 export const createTopic = async (req, res) => {
   try {
-    const topic = new Topic(req.body);
+    let { title, description } = req.body;
+
+    // Parse JSON strings from form-data
+    if (typeof title === "string") title = JSON.parse(title);
+    if (typeof description === "string") description = JSON.parse(description);
+
+    const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : "";
+
+    const topic = new Topic({
+      title,
+      description,
+      imageUrl,
+    });
+
     await topic.save();
-    res.status(201).json({ message: "Topic created successfully", topic });
+
+    res.status(201).json({
+      message: "Topic created successfully",
+      topic,
+    });
   } catch (error) {
+    console.error("Error creating topic:", error);
     res.status(400).json({ message: error.message });
   }
 };
+
 
 // Get all topics
 export const getAllTopics = async (req, res) => {
@@ -56,16 +75,33 @@ export const getTopicById = async (req, res) => {
 // Update topic
 export const updateTopic = async (req, res) => {
   try {
-    const updatedTopic = await Topic.findByIdAndUpdate(req.params.id, req.body, {
+    const { id } = req.params;
+
+    const updates = {};
+
+    if (req.body.title) updates.title = JSON.parse(req.body.title);
+    if (req.body.description) updates.description = JSON.parse(req.body.description);
+    if (req.file) updates.imageUrl = `/uploads/images/${req.file.filename}`;
+
+    const updatedTopic = await Topic.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true,
+      omitUndefined: true,
     });
-    if (!updatedTopic) return res.status(404).json({ message: "Topic not found" });
-    res.status(200).json({ message: "Topic updated successfully", updatedTopic });
+
+    if (!updatedTopic) {
+      return res.status(404).json({ message: "Topic not found" });
+    }
+
+    res.status(200).json({
+      message: "Topic updated successfully",
+      topic: updatedTopic,
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
+
 
 // Delete topic
 export const deleteTopic = async (req, res) => {

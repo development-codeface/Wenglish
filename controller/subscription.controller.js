@@ -4,9 +4,21 @@ import User from "../models/user.model.js";
 // Create a new subscription plan
 export const createSubscriptionPlan = async (req, res) => {
   try {
+    if (typeof req.body.title === "string") req.body.title = JSON.parse(req.body.title);
+    if (typeof req.body.description === "string") req.body.description = JSON.parse(req.body.description);
+
+    // Handle uploaded image
+    if (req.file) {
+      req.body.imageUrl = `/uploads/images/${req.file.filename}`;
+    }
+
     const plan = new SubscriptionPlan(req.body);
     await plan.save();
-    res.status(201).json({ message: "Subscription plan created", plan });
+
+    res.status(201).json({
+      message: "Subscription plan created successfully",
+      plan,
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -23,7 +35,7 @@ export const getAllPlans = async (req, res) => {
       _id: plan._id,
       title: plan.title[userLang] || plan.title.en,
       description: plan.description[userLang] || plan.description.en,
-      image: plan.image,
+      imageUrl: plan.imageUrl,
       price: plan.price,
       duration: plan.duration,
       days: plan.days,
@@ -52,7 +64,7 @@ export const getPlanById = async (req, res) => {
       _id: plan._id,
       title: plan.title[userLang] || plan.title.en,
       description: plan.description[userLang] || plan.description.en,
-      image: plan.image,
+      imageUrl: plan.imageUrl,
       price: plan.price,
       duration: plan.duration,
       days: plan.days,
@@ -70,6 +82,9 @@ export const getPlanById = async (req, res) => {
 export const updateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
+     if (req.file) {
+      req.body.imageUrl = `/uploads/iamges/${req.file.filename}`;
+    }
     const updatedPlan = await SubscriptionPlan.findByIdAndUpdate(id, req.body, {
       new: true,
       runValidators: true,

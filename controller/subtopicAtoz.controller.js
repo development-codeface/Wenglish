@@ -5,18 +5,30 @@ import Topic from "../models/topic.model.js";
 export const createSubTopic = async (req, res) => {
   try {
     const { topicId } = req.body;
+
     const topicExists = await Topic.findById(topicId);
     if (!topicExists) {
       return res.status(404).json({ message: "Topic not found" });
     }
 
-    const subTopic = new SubTopicAtoZ(req.body);
+    const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : "";
+
+    const subTopic = new SubTopicAtoZ({
+      topicId,
+      question: JSON.parse(req.body.question),
+      correctAnswers: JSON.parse(req.body.correctAnswers),
+      fullWord: JSON.parse(req.body.fullWord),
+      imageUrl,
+    });
+
     await subTopic.save();
     res.status(201).json({ message: "Subtopic created successfully", subTopic });
   } catch (error) {
+    console.error(error);
     res.status(400).json({ message: error.message });
   }
 };
+
 
 // Get all subtopics (localized by user language)
 export const getAllSubTopics = async (req, res) => {
@@ -77,16 +89,37 @@ export const getSubTopicById = async (req, res) => {
 // Update subtopic
 export const updateSubTopic = async (req, res) => {
   try {
-    const updated = await SubTopicAtoZ.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updated) return res.status(404).json({ message: "Subtopic not found" });
+    const existing = await SubTopicAtoZ.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Subtopic not found" });
+
+    const imageUrl = req.file
+      ? `/uploads/images/${req.file.filename}`
+      : existing.imageUrl;
+
+    const updatedData = {
+      topicId: req.body.topicId || existing.topicId,
+      question: req.body.question ? JSON.parse(req.body.question) : existing.question,
+      correctAnswers: req.body.correctAnswers
+        ? JSON.parse(req.body.correctAnswers)
+        : existing.correctAnswers,
+      fullWord: req.body.fullWord
+        ? JSON.parse(req.body.fullWord)
+        : existing.fullWord,
+      imageUrl,
+    };
+
+    const updated = await SubTopicAtoZ.findByIdAndUpdate(
+      req.params.id,
+      updatedData,
+      { new: true, runValidators: true }
+    );
+
     res.status(200).json({ message: "Subtopic updated successfully", updated });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 // Delete subtopic
 export const deleteSubTopic = async (req, res) => {

@@ -13,7 +13,7 @@ const subscriptionSchema = new mongoose.Schema(
   {
     title: multilingualField,
     description: multilingualField,
-    image: { type: String },
+    imageUrl: { type: String },
     price: { type: Number, required: true },
 
     duration: {

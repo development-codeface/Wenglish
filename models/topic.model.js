@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 
 const localizedFieldSchema = new mongoose.Schema({
-  en: { type: String, required: true }, 
-  hi: { type: String, required: true }, 
-  ta: { type: String, required: true }, 
-  te: { type: String, required: true }, 
-  kn: { type: String, required: true }, 
-  ml: { type: String, required: true }, 
+  en: { type: String, required: true },
+  hi: { type: String },
+  ta: { type: String },
+  te: { type: String },
+  kn: { type: String },
+  ml: { type: String },
 });
 
 const topicSchema = new mongoose.Schema(

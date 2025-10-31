@@ -6,7 +6,7 @@ import { initializeUserProgress } from "./progress.controller.js";
 
 export const createLesson = async (req, res) => {
   try {
-    const {
+    let {
       chapterId,
       title,
       description,
@@ -17,6 +17,26 @@ export const createLesson = async (req, res) => {
       order,
       options,
     } = req.body;
+
+    // Parse all JSON fields if they are strings
+    title = typeof title === "string" ? JSON.parse(title) : title;
+    description =
+      typeof description === "string" ? JSON.parse(description) : description;
+    question = typeof question === "string" ? JSON.parse(question) : question;
+    correctAnswer =
+      typeof correctAnswer === "string"
+        ? JSON.parse(correctAnswer)
+        : correctAnswer;
+    options = typeof options === "string" ? JSON.parse(options) : options;
+
+    // Handle uploaded files if any
+    if (req.files?.videoUrl) {
+      videoUrl = req.files.videoUrl[0].path;
+    }
+    if (req.files?.thumbnail) {
+      thumbnail = req.files.thumbnail[0].path;
+    }
+
     const lesson = new Lesson({
       chapterId,
       title,
@@ -28,10 +48,12 @@ export const createLesson = async (req, res) => {
       order,
       options,
     });
+
     await lesson.save();
-    res.status(201).json(lesson);
+    res.status(201).json({ message: "Lesson created successfully", lesson });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(400).json({ message: err.message });
   }
 };
 
@@ -46,7 +68,8 @@ export const getLessonsByChapter = async (req, res) => {
   const lessons = await Lesson.find({ chapterId }).sort({ order: 1 });
 
   const lessonsWithTranslation = lessons.map((lesson) => {
-    const getText = (field) => (lesson[field]?.[language] || lesson[field]?.en || "");
+    const getText = (field) =>
+      lesson[field]?.[language] || lesson[field]?.en || "";
     return {
       _id: lesson._id,
       title: getText("title"),
@@ -60,22 +83,20 @@ export const getLessonsByChapter = async (req, res) => {
   res.json(lessonsWithTranslation);
 };
 
-
 export const answerLessonQuestion = async (req, res) => {
   try {
     const { lessonId } = req.params;
     const { answer } = req.body;
     const userId = req.user.id;
-      const user = await User.findById(userId);
-
+    const user = await User.findById(userId);
 
     const lesson = await Lesson.findById(lessonId);
     if (!lesson) return res.status(404).json({ message: "Lesson not found" });
 
     const lang = user.languagePreference || "en";
-const correct = lesson.correctAnswer[lang] || lesson.correctAnswer.en;
-const isCorrect =
-  correct.trim().toLowerCase() === String(answer).trim().toLowerCase();
+    const correct = lesson.correctAnswer[lang] || lesson.correctAnswer.en;
+    const isCorrect =
+      correct.trim().toLowerCase() === String(answer).trim().toLowerCase();
 
     if (!isCorrect)
       return res.json({ correct: false, message: "Wrong answer" });
@@ -137,12 +158,16 @@ export const updateLesson = async (req, res) => {
     // Validate options if they are being updated
     if (options) {
       if (!Array.isArray(options) || options.length < 2) {
-        return res.status(400).json({ message: "Options must contain at least two choices" });
+        return res
+          .status(400)
+          .json({ message: "Options must contain at least two choices" });
       }
 
       // Ensure correct answer is part of the updated options
       if (correctAnswer && !options.includes(correctAnswer)) {
-        return res.status(400).json({ message: "Correct answer must be one of the options" });
+        return res
+          .status(400)
+          .json({ message: "Correct answer must be one of the options" });
       }
 
       lesson.options = options;
@@ -150,8 +175,16 @@ export const updateLesson = async (req, res) => {
 
     if (title) lesson.title = title;
     if (description) lesson.description = description;
-    if (videoUrl) lesson.videoUrl = videoUrl;
-    if (thumbnail) lesson.thumbnail = thumbnail;
+    if (req.files?.videoUrl) {
+      lesson.videoUrl = req.files.videoUrl[0].path;
+    } else if (videoUrl) {
+      lesson.videoUrl = videoUrl;
+    }
+    if (req.files?.thumbnail) {
+      lesson.thumbnail = req.files.thumbnail[0].path;
+    } else if (thumbnail) {
+      lesson.thumbnail = thumbnail;
+    }
     if (question) lesson.question = question;
     if (correctAnswer) lesson.correctAnswer = correctAnswer;
     if (order !== undefined) lesson.order = order;
@@ -164,3 +197,36 @@ export const updateLesson = async (req, res) => {
   }
 };
 
+export const deleteLesson = async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+
+    // Find the lesson
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson) {
+      return res.status(404).json({ message: "Lesson not found" });
+    }
+
+    const removeFile = (filePath) => {
+      if (!filePath) return;
+      const fullPath = path.resolve(filePath);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    };
+
+    if (lesson.videoUrl && !lesson.videoUrl.startsWith("http")) {
+      removeFile(lesson.videoUrl);
+    }
+    if (lesson.thumbnail && !lesson.thumbnail.startsWith("http")) {
+      removeFile(lesson.thumbnail);
+    }
+
+    // Delete from database
+    await lesson.deleteOne();
+
+    res.status(200).json({ message: "Lesson deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

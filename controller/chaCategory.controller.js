@@ -5,34 +5,29 @@ import ChatHistory from "../models/chatHistory.model.js";
 // Create a new chat category (supports multilingual fields)
 export const createCategory = async (req, res) => {
   try {
-    const { image, title = {}, description = {} } = req.body;
+    let { title, description } = req.body;
 
-    if (!title.en || !description.en) {
-      return res.status(400).json({ error: "English (en) title and description are required" });
+    // Parse multilingual fields if sent as JSON strings
+    if (typeof title === "string") title = JSON.parse(title);
+    if (typeof description === "string") description = JSON.parse(description);
+
+    if (!title?.en || !description?.en) {
+      return res.status(400).json({
+        error: "English (en) title and description are required",
+      });
     }
 
     const newCategory = new ChatCategory({
-      image,
-      title: {
-        en: title.en || "",
-        hi: title.hi || "",
-        ta: title.ta || "",
-        te: title.te || "",
-        kn: title.kn || "",
-        ml: title.ml || "",
-      },
-      description: {
-        en: description.en || "",
-        hi: description.hi || "",
-        ta: description.ta || "",
-        te: description.te || "",
-        kn: description.kn || "",
-        ml: description.ml || "",
-      },
+      image: req.file ? `/uploads/images/${req.file.filename}` : "",
+      title,
+      description,
     });
 
     await newCategory.save();
-    res.status(201).json({ message: "Chat category created successfully", category: newCategory });
+    res.status(201).json({
+      message: "Chat category created successfully",
+      category: newCategory,
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -81,14 +76,33 @@ export const getCategoryById = async (req, res) => {
 // Update a category by ID
 export const updateCategory = async (req, res) => {
   try {
-    const { image, title, description } = req.body;
-    const updatedCategory = await ChatCategory.findByIdAndUpdate(
-      req.params.id,
-      { image, title, description },
-      { new: true, runValidators: true }
-    );
-    if (!updatedCategory) return res.status(404).json({ error: "Category not found" });
-    res.status(200).json({ message: "Chat category updated successfully", category: updatedCategory });
+    const { id } = req.params;
+    let { title, description } = req.body;
+
+    if (typeof title === "string") title = JSON.parse(title);
+    if (typeof description === "string") description = JSON.parse(description);
+
+    const updateData = {
+      ...(title && { title }),
+      ...(description && { description }),
+    };
+
+    if (req.file) {
+      updateData.image = `/uploads/images/${req.file.filename}`;
+    }
+
+    const updatedCategory = await ChatCategory.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedCategory)
+      return res.status(404).json({ error: "Category not found" });
+
+    res.status(200).json({
+      message: "Chat category updated successfully",
+      category: updatedCategory,
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

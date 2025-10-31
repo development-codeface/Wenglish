@@ -17,12 +17,22 @@ import middleware from "i18next-http-middleware"
 import i18n from './utils/i18n.js';
 import atozRoutes from './routes/subtopicAtoz.routes.js';
 import topics from './routes/topic.routes.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 connectDB();
 
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 app.use(middleware.handle(i18n));
 app.use(express.json());
 app.use("/api/auth", authRoutes);
