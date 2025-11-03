@@ -5,6 +5,7 @@ import TempUser from "../models/tempUser.model.js";
 import User from "../models/user.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { initializeUserProgress } from "../controller/progress.controller.js";
+import { stat } from "fs";
 
 export const verifyEmailOTP = async (req, res) => {
   try {
@@ -45,10 +46,11 @@ export const verifyEmailOTP = async (req, res) => {
     res.status(200).json({
       message: "Email verified successfully",
       user: userData,
+      status: "true",
       token,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status: "false" });
   }
 };
 
@@ -74,8 +76,8 @@ export const resendOtp = async (req, res) => {
       `Your new OTP is ${otpCode}. It expires in 5 minutes.`
     );
 
-    res.json({ message: "OTP resent successfully" });
+    res.json({ message: "OTP resent successfully",status: "true" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status: "false" });
   }
 };
