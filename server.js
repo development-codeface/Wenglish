@@ -19,6 +19,7 @@ import atozRoutes from './routes/subtopicAtoz.routes.js';
 import topics from './routes/topic.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import whyLearn from './routes/whyLearn.routes.js'; 
 
 dotenv.config();
 connectDB();
@@ -47,6 +48,7 @@ app.use("/api/users",user );
 app.use("/api/otp", otp );
 app.use("/api/atoz", atozRoutes); 
 app.use("/api/topics", topics);
+app.use("/api/why-learn", whyLearn);
 const server = http.createServer(app);
 
 initChatSocket(server);
