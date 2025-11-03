@@ -1,28 +1,61 @@
-
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { initializeUserProgress } from "./progress.controller.js";
-import  Subscription  from "../models/subscription.model.js";
+import Subscription from "../models/subscription.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import crypto from "crypto";
 import OTP from "../models/otp.model.js";
 import TempUser from "../models/tempUser.model.js";
 
-
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role, phone, languagePreference, whyLearn } = req.body;
+    let { name, email, password, role, phone, languagePreference, whyLearn } = req.body;
+    
+    // Normalize whyLearn only if provided
+    if (whyLearn !== undefined && whyLearn !== null && whyLearn !== "") {
+      if (typeof whyLearn === "string") {
+        try {
+          const parsed = JSON.parse(whyLearn);
+          if (Array.isArray(parsed)) {
+            whyLearn = parsed;
+          } else {
+            whyLearn = [parsed];
+          }
+        } catch {
+          whyLearn = [whyLearn];
+        }
+      } else if (!Array.isArray(whyLearn)) {
+        whyLearn = [whyLearn];
+      }
+    } else {
+      whyLearn = [];
+    }
+
+    // Clean up languagePreference
+    if (typeof languagePreference === "string") {
+      languagePreference = languagePreference.trim();
+      if (languagePreference === "" || languagePreference === "null") {
+        languagePreference = null;
+      }
+    }
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "User already exists" });
+    if (existingUser)
+      return res.status(400).json({ message: "User already exists" });
 
     await TempUser.deleteOne({ email });
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const profileImage = req.file ? `/uploads/profiles/${req.file.filename}` : "";
 
-        const profileImage = req.file ? `/uploads/profiles/${req.file.filename}` : "";
-
+    // Determine onboarding completion
+    const isOnboardingComplete =
+      languagePreference &&
+      Array.isArray(whyLearn) &&
+      whyLearn.length > 0
+        ? true
+        : false;
 
     await TempUser.create({
       name,
@@ -30,23 +63,27 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
       role: role || "user",
       phone,
-      profileImage: profileImage || "",
-      languagePreference: languagePreference || "",
-      whyLearn: Array.isArray(whyLearn) ? whyLearn : [],
+      profileImage,
+      languagePreference,
+      whyLearn,
+      isOnboardingComplete,
     });
 
     // Generate and send OTP
     const otpCode = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
-await OTP.create({
-  email,
-  otp: otpCode, 
-  expiresAt: otpExpiry,
-});
-    await sendEmail(email, "Verify Your Email", `Your OTP is ${otpCode}. It expires in 5 minutes.`);
+    await OTP.create({ email, otp: otpCode, expiresAt: otpExpiry });
+    await sendEmail(
+      email,
+      "Verify Your Email",
+      `Your OTP is ${otpCode}. It expires in 5 minutes.`
+    );
 
-    res.status(200).json({ message: "OTP sent successfully. Please verify to complete registration." ,status: "true" });
+    res.status(200).json({
+      message: "OTP sent successfully. Please verify to complete registration.",
+      status: "true",
+    });
   } catch (err) {
     res.status(500).json({ message: err.message, status: "false" });
   }
@@ -62,11 +99,17 @@ export const loginUser = async (req, res) => {
 
     // Check if email is verified
     if (!user.isVerified) {
-      return res.status(403).json({ message: "Email not verified. Please verify your email before logging in." });
+      return res
+        .status(403)
+        .json({
+          message:
+            "Email not verified. Please verify your email before logging in.",
+        });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+    if (!isMatch)
+      return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -88,5 +131,3 @@ export const loginUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-
