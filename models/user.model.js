@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
     whyLearn: { type: [String] },
     isVerified: { type: Boolean, default: false },
     usageHistory: [{ type: Date }],
+    isOnboardingComplete: { type: Boolean, default: false }, 
   },
   { timestamps: true }
 );
