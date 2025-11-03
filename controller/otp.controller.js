@@ -45,10 +45,11 @@ export const verifyEmailOTP = async (req, res) => {
     res.status(200).json({
       message: "Email verified successfully",
       user: userData,
+      status: "true",
       token,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status: "false" });
   }
 };
 
@@ -74,8 +75,8 @@ export const resendOtp = async (req, res) => {
       `Your new OTP is ${otpCode}. It expires in 5 minutes.`
     );
 
-    res.json({ message: "OTP resent successfully" });
+    res.json({ message: "OTP resent successfully",status: "true" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status: "false" });
   }
 };
