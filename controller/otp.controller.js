@@ -5,7 +5,6 @@ import TempUser from "../models/tempUser.model.js";
 import User from "../models/user.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { initializeUserProgress } from "../controller/progress.controller.js";
-import { stat } from "fs";
 
 export const verifyEmailOTP = async (req, res) => {
   try {
