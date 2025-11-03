@@ -46,9 +46,9 @@ await OTP.create({
 });
     await sendEmail(email, "Verify Your Email", `Your OTP is ${otpCode}. It expires in 5 minutes.`);
 
-    res.status(200).json({ message: "OTP sent successfully. Please verify to complete registration." });
+    res.status(200).json({ message: "OTP sent successfully. Please verify to complete registration." ,status: "true" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status: "false" });
   }
 };
 
