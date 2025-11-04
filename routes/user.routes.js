@@ -1,5 +1,5 @@
 import express from "express";
-import { subscribeUser, deleteUser, getAllUsers, getUserById, updateUser } from "../controller/user.controller.js";
+import { subscribeUser, deleteUser, getAllUsers, getUserById, updateUser, completeOnboarding } from "../controller/user.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { uploadProfile } from "../middlewares/upload.Instance.js";
 
@@ -10,6 +10,7 @@ router.put("/:id", authMiddleware,uploadProfile.single("profileImage"), updateUs
 router.delete("/:id", authMiddleware, deleteUser);
 router.get("/:id", authMiddleware, getUserById);
 router.get("/", getAllUsers);
+router.post("/complete-onboarding", authMiddleware, completeOnboarding);
 
 
 export default router;

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const multilingualField = {
-  en: { type: String, required: true },
+  en: { type: String},
   ml: { type: String },
   ta: { type: String },
   te: { type: String },
@@ -12,6 +12,7 @@ const multilingualField = {
 const chapterSchema = new mongoose.Schema({
   title: multilingualField,
   intro: multilingualField,
+  thumbnail: { type: String },
   order: { type: Number, required: true }
 });
 

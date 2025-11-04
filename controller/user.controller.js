@@ -110,3 +110,40 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const completeOnboarding = async (req, res) => {
+  try {
+    const userId = req.user.id; 
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized access" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { isOnboardingComplete: true },
+      { new: true, runValidators: true }
+    ).select("-password"); 
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      status: true,
+      message: "Onboarding marked as complete",
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        isOnboardingComplete: updatedUser.isOnboardingComplete,
+      },
+    });
+  } catch (error) {
+    console.error("Error completing onboarding:", error);
+    res.status(500).json({
+      status: false,
+      message: "Server error while updating onboarding status",
+    });
+  }
+};
