@@ -7,6 +7,7 @@ import { sendEmail } from "../utils/mailer.js";
 import crypto from "crypto";
 import OTP from "../models/otp.model.js";
 import TempUser from "../models/tempUser.model.js";
+import { on } from "events";
 
 export const registerUser = async (req, res) => {
   try {
@@ -125,9 +126,11 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        onboardingComplete: user.isOnboardingComplete,
+        status: "true",
       },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status: "false" });
   }
 };
