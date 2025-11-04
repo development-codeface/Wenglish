@@ -70,41 +70,55 @@ export const getAllChapters = async (req, res) => {
 
 export const getAllChaptersWithLessons = async (req, res) => {
   try {
-    // Determine user language (priority: ?lang > Accept-Language header > en)
-    const userLang =
-      req.query.lang ||
-      req.headers["accept-language"]?.split(",")[0]?.slice(0, 2) ||
-      "en";
+       const userId = req.user.id;
+    const user = await User.findById(userId);
+    const userLang = user.languagePreference || "en";
 
-    // Fetch chapters and lessons
+    // Fetch all chapters and lessons
     const chapters = await Chapter.find().sort({ order: 1 }).lean();
     const lessons = await Lesson.find().sort({ order: 1 }).lean();
 
     // Group lessons by chapterId
     const lessonsByChapter = lessons.reduce((acc, lesson) => {
-      const chapId = lesson.chapterId.toString();
-      if (!acc[chapId]) acc[chapId] = [];
+      const chapId = lesson.chapterId?.toString();
+      if (!chapId) return acc;
+
+      // ✅ Safe helpers to handle both string and object fields
+      const safeText = (obj, lang = "en") =>
+        typeof obj === "string"
+          ? obj
+          : (obj && (obj[lang] || obj.en)) || "";
+
+      acc[chapId] = acc[chapId] || [];
       acc[chapId].push({
         _id: lesson._id,
         order: lesson.order,
-        title: lesson.title[userLang] || lesson.title.en,
-        description: lesson.description[userLang] || lesson.description.en,
-        videoUrl: lesson.videoUrl,
-        thumbnail: lesson.thumbnail,
-        question: lesson.question[userLang] || lesson.question.en,
-        options: lesson.options.map((opt) => opt[userLang] || opt.en),
-        correctAnswer:
-          lesson.correctAnswer[userLang] || lesson.correctAnswer.en,
+        title: safeText(lesson.title, userLang),
+        description: safeText(lesson.description, userLang),
+        videoUrl: lesson.videoUrl || "",
+        thumbnail: lesson.thumbnail || "",
+        question: safeText(lesson.question, userLang),
+        options:
+          Array.isArray(lesson.options) && lesson.options.length > 0
+            ? lesson.options.map((opt) => safeText(opt, userLang))
+            : [],
+        correctAnswer: safeText(lesson.correctAnswer, userLang),
       });
       return acc;
     }, {});
 
-    // Combine chapters with their localized lessons
+    // Combine chapters with their lessons
     const data = chapters.map((chapter) => ({
       _id: chapter._id,
       order: chapter.order,
-      title: chapter.title[userLang] || chapter.title.en,
-      intro: chapter.intro[userLang] || chapter.intro.en,
+      title:
+        typeof chapter.title === "string"
+          ? chapter.title
+          : chapter.title?.[userLang] || chapter.title?.en || "",
+      intro:
+        typeof chapter.intro === "string"
+          ? chapter.intro
+          : chapter.intro?.[userLang] || chapter.intro?.en || "",
       lessons: lessonsByChapter[chapter._id.toString()] || [],
     }));
 
@@ -118,6 +132,7 @@ export const getAllChaptersWithLessons = async (req, res) => {
     res.status(500).json({ status: false, message: err.message });
   }
 };
+
 
 export const updateChapter = async (req, res) => {
   try {
