@@ -12,26 +12,6 @@ import { on } from "events";
 export const registerUser = async (req, res) => {
   try {
     let { name, email, password, role, phone, languagePreference, whyLearn } = req.body;
-    
-    // Normalize whyLearn only if provided
-    if (whyLearn !== undefined && whyLearn !== null && whyLearn !== "") {
-      if (typeof whyLearn === "string") {
-        try {
-          const parsed = JSON.parse(whyLearn);
-          if (Array.isArray(parsed)) {
-            whyLearn = parsed;
-          } else {
-            whyLearn = [parsed];
-          }
-        } catch {
-          whyLearn = [whyLearn];
-        }
-      } else if (!Array.isArray(whyLearn)) {
-        whyLearn = [whyLearn];
-      }
-    } else {
-      whyLearn = [];
-    }
 
     // Clean up languagePreference
     if (typeof languagePreference === "string") {
@@ -50,14 +30,6 @@ export const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const profileImage = req.file ? `/uploads/profiles/${req.file.filename}` : "";
 
-    // Determine onboarding completion
-    const isOnboardingComplete =
-      languagePreference &&
-      Array.isArray(whyLearn) &&
-      whyLearn.length > 0
-        ? true
-        : false;
-
     await TempUser.create({
       name,
       email,
@@ -67,7 +39,6 @@ export const registerUser = async (req, res) => {
       profileImage,
       languagePreference,
       whyLearn,
-      isOnboardingComplete,
     });
 
     // Generate and send OTP
