@@ -195,3 +195,46 @@ export const deleteChapter = async (req, res) => {
     res.status(500).json({ status: false, message: err.message });
   }
 };
+
+export const getAllChaptersAllLang = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    let userLang = "en";
+
+    if (userId) {
+      const user = await User.findById(userId).select("languagePreference");
+      if (user && user.languagePreference) {
+        userLang = user.languagePreference;
+      }
+    }
+
+    // Fetch all chapters sorted by order
+    const chapters = await Chapter.find().sort({ order: 1 });
+
+    if (!chapters.length) {
+      return res.status(404).json({
+        status: false,
+        message: "No chapters found",
+        chapters: [],
+      });
+    }
+
+    // Return full multilingual data for each chapter
+    const allLanguageChapters = chapters.map((chapter) => ({
+      _id: chapter._id,
+      order: chapter.order,
+      title: chapter.title, 
+      intro: chapter.intro, 
+      thumbnail: chapter.thumbnail || null,
+    }));
+
+    res.status(200).json({
+      status: true,
+      message: `All chapters returned (user preferred language: ${userLang})`,
+      chapters: allLanguageChapters,
+    });
+  } catch (err) {
+    console.error("Error fetching chapters:", err);
+    res.status(500).json({ status: false, message: err.message });
+  }
+};
