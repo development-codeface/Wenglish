@@ -5,6 +5,7 @@ import {
   createLesson,
   updateLesson,
   deleteLesson,
+  getLessonsByChapterAll,
 } from "../controller/lesson.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { uploadLessonMedia } from "../middlewares/upload.Instance.js";
@@ -20,6 +21,7 @@ router.post(
   createLesson
 );
 router.get("/chapter/:chapterId", authMiddleware, getLessonsByChapter);
+router.get("/chapter-all/:chapterId", authMiddleware, getLessonsByChapterAll);
 router.post("/:lessonId/answer", authMiddleware, answerLessonQuestion);
 router.put(
   "/:lessonId",
