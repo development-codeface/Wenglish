@@ -1,4 +1,5 @@
 import Question from "../models/onboardingQstns.model.js";
+import UserAnswer from "../models/onboardingUserAnswer.model.js";
 
 // Create Question
 export const addQuestion = async (req, res) => {
@@ -165,3 +166,56 @@ export const deleteQuestion = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+export const submitAnswer = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { questionId, answers } = req.body;
+
+    if (!questionId || !answers || !Array.isArray(answers) || answers.length === 0) {
+      return res.status(400).json({ message: "Question ID and at least one answer are required." });
+    }
+
+    const question = await Question.findById(questionId);
+    if (!question) {
+      return res.status(404).json({ message: "Question not found." });
+    }
+
+    const saved = await UserAnswer.findOneAndUpdate(
+      { userId, questionId },
+      { answers },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({
+      status: true,
+      message: "Answer saved successfully",
+      answer: saved,
+    });
+
+  } catch (error) {
+    console.error("Error saving answer:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getUserAnswers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const answers = await UserAnswer.find({ userId })
+      .populate("questionId", "questionText icon");
+
+    res.status(200).json({
+      status: true,
+      message: "User answers fetched successfully",
+      answers,
+    });
+
+  } catch (error) {
+    console.error("Error fetching answers:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
