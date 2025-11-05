@@ -23,9 +23,9 @@ export const subscribeUser = async (req, res) => {
     };
     await user.save();
 
-    res.status(200).json({ message: "Subscribed successfully", subscription: user.subscription });
+    res.status(200).json({ message: "Subscribed successfully", subscription: user.subscription, status:"true" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status:"false" });
   }
 };
 
@@ -59,9 +59,10 @@ export const updateUser = async (req, res) => {
     res.status(200).json({
       message: "Profile updated successfully",
       user: updatedUser,
+      status:"true"
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status:"false" });
   }
 };
 
@@ -78,10 +79,11 @@ export const deleteUser = async (req, res) => {
 
     res.status(200).json({
       message: "User deleted successfully",
-      userId: deletedUser._id
+      userId: deletedUser._id,
+      status:"true"
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status:"false" });
   }
 };
 
@@ -95,9 +97,9 @@ export const getUserById = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ user });
+    res.status(200).json({ user , status:"true"});
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message, status:"false" });
   }
 };
 
@@ -105,9 +107,9 @@ export const getAllUsers = async (req, res) => {
   try {
     const users = await User.find().select("-password"); 
 
-    res.status(200).json({ users });
+    res.status(200).json({ users, status:"true" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message , status:"false"});
   }
 };
 
@@ -137,6 +139,7 @@ export const completeOnboarding = async (req, res) => {
         name: updatedUser.name,
         email: updatedUser.email,
         isOnboardingComplete: updatedUser.isOnboardingComplete,
+        status:"true"
       },
     });
   } catch (error) {
