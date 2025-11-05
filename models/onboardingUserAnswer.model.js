@@ -7,8 +7,8 @@ const userAnswerSchema = new mongoose.Schema(
 
     answers: [
       {
-        text: { type: String, required: true },
-        icon: { type: String }
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
       }
     ],
   },

@@ -172,13 +172,20 @@ export const submitAnswer = async (req, res) => {
     const userId = req.user.id;
     const { questionId, answers } = req.body;
 
-    if (!questionId || !answers || !Array.isArray(answers) || answers.length === 0) {
-      return res.status(400).json({ message: "Question ID and at least one answer are required." });
+    if (!questionId || !Array.isArray(answers) || answers.length === 0) {
+      return res.status(400).json({ message: "Question ID and answers are required" });
     }
 
     const question = await Question.findById(questionId);
     if (!question) {
-      return res.status(404).json({ message: "Question not found." });
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    const validOptionIds = question.options.map(opt => opt._id.toString());
+    const invalidSelections = answers.filter(a => !validOptionIds.includes(a));
+
+    if (invalidSelections.length > 0) {
+      return res.status(400).json({ message: "One or more selected answers are invalid" });
     }
 
     const saved = await UserAnswer.findOneAndUpdate(
@@ -189,15 +196,16 @@ export const submitAnswer = async (req, res) => {
 
     res.status(200).json({
       status: true,
-      message: "Answer saved successfully",
+      message: "Answers saved successfully",
       answer: saved,
     });
 
   } catch (error) {
-    console.error("Error saving answer:", error);
+    console.error("Error saving answers:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const getUserAnswers = async (req, res) => {
   try {
