@@ -1,6 +1,7 @@
 import Chapter from "../models/chapter.model.js";
 import Lesson from "../models/lessons.model.js";
 import User from "../models/user.model.js";
+import UserProgress from "../models/userProgress.model.js";
 
 export const createChapter = async (req, res) => {
   try {
@@ -70,9 +71,11 @@ export const getAllChapters = async (req, res) => {
 
 export const getAllChaptersWithLessons = async (req, res) => {
   try {
-       const userId = req.user.id;
+    const userId = req.user.id;
     const user = await User.findById(userId);
     const userLang = user.languagePreference || "en";
+
+    const progress = await UserProgress.findOne({ userId });
 
     // Fetch all chapters and lessons
     const chapters = await Chapter.find().sort({ order: 1 }).lean();
@@ -83,11 +86,8 @@ export const getAllChaptersWithLessons = async (req, res) => {
       const chapId = lesson.chapterId?.toString();
       if (!chapId) return acc;
 
-      // ✅ Safe helpers to handle both string and object fields
       const safeText = (obj, lang = "en") =>
-        typeof obj === "string"
-          ? obj
-          : (obj && (obj[lang] || obj.en)) || "";
+        typeof obj === "string" ? obj : (obj && (obj[lang] || obj.en)) || "";
 
       acc[chapId] = acc[chapId] || [];
       acc[chapId].push({
@@ -103,6 +103,7 @@ export const getAllChaptersWithLessons = async (req, res) => {
             ? lesson.options.map((opt) => safeText(opt, userLang))
             : [],
         correctAnswer: safeText(lesson.correctAnswer, userLang),
+        locked: !progress?.unlockedLessons.includes(lesson._id),
       });
       return acc;
     }, {});
@@ -132,7 +133,6 @@ export const getAllChaptersWithLessons = async (req, res) => {
     res.status(500).json({ status: false, message: err.message });
   }
 };
-
 
 export const updateChapter = async (req, res) => {
   try {
@@ -223,8 +223,8 @@ export const getAllChaptersAllLang = async (req, res) => {
     const allLanguageChapters = chapters.map((chapter) => ({
       _id: chapter._id,
       order: chapter.order,
-      title: chapter.title, 
-      intro: chapter.intro, 
+      title: chapter.title,
+      intro: chapter.intro,
       thumbnail: chapter.thumbnail || null,
     }));
 
