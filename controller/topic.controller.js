@@ -49,6 +49,27 @@ export const getAllTopics = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+export const getAllTopicsAllLnag = async (req, res) => {
+  try {
+    const topics = await Topic.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: true,
+      message: "Topics returned with all languages",
+      topics: topics.map((topic) => ({
+        _id: topic._id,
+        title: topic.title,                
+        description: topic.description,    
+        imageUrl: topic.imageUrl,
+        createdAt: topic.createdAt,
+      })),
+    });
+
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 
 // Get topic by ID
 export const getTopicById = async (req, res) => {

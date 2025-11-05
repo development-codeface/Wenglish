@@ -59,6 +59,41 @@ export const getAllSubTopics = async (req, res) => {
   }
 };
 
+export const getAllSubTopicsAllLanguages = async (req, res) => {
+  try {
+    const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
+
+    const subTopics = await SubTopicAtoZ.find(filter)
+      .populate("topicId", "title description imageUrl")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: true,
+      message: "Sub-topics returned with all languages",
+      subTopics: subTopics.map((s) => ({
+        _id: s._id,
+        topicId: s.topicId?._id,
+        question: s.question,        
+        correctAnswers: s.correctAnswers,
+        fullWord: s.fullWord,
+        imageUrl: s.imageUrl,
+        topic: s.topicId
+          ? {
+              _id: s.topicId._id,
+              title: s.topicId.title,     
+              description: s.topicId.description,
+              imageUrl: s.topicId.imageUrl,
+            }
+          : null,
+      })),
+    });
+
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+
 // Get subtopic by ID (localized)
 export const getSubTopicById = async (req, res) => {
   try {
