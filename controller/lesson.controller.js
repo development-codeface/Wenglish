@@ -7,7 +7,7 @@ import { initializeUserProgress } from "./progress.controller.js";
 import fs from "fs";
 import path from "path";
 
-// Helper functions
+// Helpers
 const parseIfJson = (value) => {
   if (typeof value === "string") {
     try { return JSON.parse(value); } catch { return value; }
@@ -45,7 +45,7 @@ export const createLesson = async (req, res) => {
     correctAnswer = parseIfJson(correctAnswer);
     options = parseIfJson(options);
 
-    // Ensure optionId exists for each option
+    // Ensure optionId for each option
     options = options.map((opt) => ({
       optionId: opt.optionId || new mongoose.Types.ObjectId(),
       ...opt,
@@ -74,53 +74,57 @@ export const createLesson = async (req, res) => {
   }
 };
 
-// ✅ Get Lessons (preferred language)
+// ✅ Get Lessons (User View - Only Preferred Language)
 export const getLessonsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.params;
     const userId = req.user.id;
-
     const user = await User.findById(userId);
     const lang = user?.languagePreference || "en";
 
     const progress = await UserProgress.findOne({ userId });
     const lessons = await Lesson.find({ chapterId }).sort({ order: 1 });
 
-    const lessonsResponse = lessons.map((lesson) => ({
-      _id: lesson._id,
-      order: lesson.order,
-      title: translate(lesson.title, lang),
-      description: translate(lesson.description, lang),
-      question: translate(lesson.question, lang),
-      options: lesson.options.map((opt) => ({
-        optionId: opt.optionId,
-        text: translate(opt, lang)
-      })),
-      correctAnswer: translate(lesson.correctAnswer, lang),
-      videoUrl: lesson.videoUrl,
-      thumbnail: lesson.thumbnail,
-locked:
-    lesson.order === 1
-      ? false
-      : !progress?.unlockedLessons.includes(lesson._id),    }));
+    const lessonsResponse = lessons.map((lesson) => {
+      const correctOpt = lesson.options.find(o => o.en === lesson.correctAnswer.en);
 
-    return res.status(200).json({
-      status: true,
-      message: "Lessons returned",
-      lessons: lessonsResponse,
+      return {
+        _id: lesson._id,
+        order: lesson.order,
+        title: translate(lesson.title, lang),
+        description: translate(lesson.description, lang),
+        question: translate(lesson.question, lang),
+
+        options: lesson.options.map((opt) => ({
+          optionId: opt.optionId,
+          text: translate(opt, lang)
+        })),
+
+        correctAnswer: correctOpt ? {
+          optionId: correctOpt.optionId,
+          text: translate(correctOpt, lang)
+        } : null,
+
+        videoUrl: lesson.videoUrl,
+        thumbnail: lesson.thumbnail,
+
+        // ✅ Always unlock first lesson
+        locked: lesson.order === 1 ? false : !progress?.unlockedLessons.includes(lesson._id),
+      };
     });
+
+    return res.status(200).json({ status: true, message: "Lessons returned", lessons: lessonsResponse });
 
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
 };
 
-// ✅ Admin / Teacher View: Get Full Lesson Data
+// ✅ Get Lessons (Admin / Full View)
 export const getLessonsByChapterAll = async (req, res) => {
   try {
     const { chapterId } = req.params;
     const userId = req.user.id;
-
     const user = await User.findById(userId);
     const lang = user?.languagePreference || "en";
 
@@ -135,24 +139,31 @@ export const getLessonsByChapterAll = async (req, res) => {
       intro: translate(chapter.intro, lang),
     };
 
-    const lessonsResponse = lessons.map((lesson) => ({
-      _id: lesson._id,
-      chapterId: lesson.chapterId,
-      order: lesson.order,
-      title: translate(lesson.title, lang),
-      description: translate(lesson.description, lang),
-      question: translate(lesson.question, lang),
-      options: lesson.options.map((opt) => ({
-        optionId: opt.optionId,
-        text: translate(opt, lang)
-      })),
-      correctAnswer: translate(lesson.correctAnswer, lang),
-      videoUrl: lesson.videoUrl,
-      thumbnail: lesson.thumbnail,
-locked:
-    lesson.order === 1
-      ? false
-      : !progress?.unlockedLessons.includes(lesson._id),    }));
+    const lessonsResponse = lessons.map((lesson) => {
+      const correctOpt = lesson.options.find(o => o.en === lesson.correctAnswer.en);
+
+      return {
+        _id: lesson._id,
+        chapterId: lesson.chapterId,
+        order: lesson.order,
+        title: translate(lesson.title, lang),
+        description: translate(lesson.description, lang),
+        question: translate(lesson.question, lang),
+        options: lesson.options.map((opt) => ({
+          optionId: opt.optionId,
+          text: translate(opt, lang)
+        })),
+        correctAnswer: correctOpt ? {
+          optionId: correctOpt.optionId,
+          text: translate(correctOpt, lang)
+        } : null,
+        videoUrl: lesson.videoUrl,
+        thumbnail: lesson.thumbnail,
+
+        // ✅ First lesson always unlocked
+        locked: lesson.order === 1 ? false : !progress?.unlockedLessons.includes(lesson._id),
+      };
+    });
 
     return res.status(200).json({
       status: true,
@@ -166,8 +177,7 @@ locked:
   }
 };
 
-
-// ✅ Answer Lesson Question
+// ✅ Answer Submission (Check by optionId only)
 export const answerLessonQuestion = async (req, res) => {
   try {
     const { lessonId } = req.params;
@@ -177,12 +187,12 @@ export const answerLessonQuestion = async (req, res) => {
     const lesson = await Lesson.findById(lessonId);
     if (!lesson) return res.status(404).json({ message: "Lesson not found" });
 
-    const correctOption = lesson.options.find(
-      (o) => String(o.optionId) === String(optionId)
-    );
+    const correctOption = lesson.options.find(o => o.en === lesson.correctAnswer.en);
 
-    const correct = lesson.correctAnswer.en; // Reference truth is English
-    const isCorrect = correctOption?.en === correct;
+    if (!correctOption)
+      return res.status(500).json({ message: "Correct answer not found in options" });
+
+    const isCorrect = String(correctOption.optionId) === String(optionId);
 
     if (!isCorrect)
       return res.json({ correct: false, message: "Wrong answer" });
@@ -203,7 +213,7 @@ export const answerLessonQuestion = async (req, res) => {
     }
 
     await progress.save();
-    res.json({ correct: true, message: "Correct! Progress saved." });
+    return res.json({ correct: true, message: "Correct!" });
 
   } catch (err) {
     return res.status(500).json({ message: err.message });
