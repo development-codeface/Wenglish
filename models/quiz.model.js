@@ -10,6 +10,10 @@ const localizedStringSchema = new mongoose.Schema({
 });
 
 const optionSchema = new mongoose.Schema({
+  optionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: () => new mongoose.Types.ObjectId(),
+  },
   en: { type: String, required: true },
   ml: { type: String, required: true },
   hi: { type: String, required: true },
@@ -33,6 +37,10 @@ const quizSchema = new mongoose.Schema(
       required: true,
     },
     correctAnswer: {
+      optionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+      },
       type: localizedStringSchema,
       required: true,
     },

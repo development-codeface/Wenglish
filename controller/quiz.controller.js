@@ -1,18 +1,47 @@
 import Quiz from "../models/quiz.model.js";
 import User from "../models/user.model.js";
 
-// Create quiz (multilingual)
+// Create quiz (multilingual + optionId handling)
 export const createQuiz = async (req, res) => {
   try {
-    const quiz = new Quiz(req.body);
+    let { question, options, correctAnswer } = req.body;
+
+    // Ensure JSON parsing in case data sent as strings (form-data)
+    try {
+      question = typeof question === "string" ? JSON.parse(question) : question;
+    } catch {}
+    try {
+      options = typeof options === "string" ? JSON.parse(options) : options;
+    } catch {}
+    try {
+      correctAnswer =
+        typeof correctAnswer === "string"
+          ? JSON.parse(correctAnswer)
+          : correctAnswer;
+    } catch {}
+
+    const quiz = new Quiz({
+      question,
+      options: options.map((opt) => ({
+        optionId: opt.optionId || undefined, // auto-generated if missing
+        ...opt,
+      })),
+      correctAnswer: {
+        optionId: correctAnswer.optionId,
+        ...correctAnswer,
+      },
+    });
+
     await quiz.save();
-    res.status(201).json({ message: "Quiz created successfully", quiz });
+    res
+      .status(201)
+      .json({ status: true, message: "Quiz created successfully", quiz });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ status: false, message: error.message });
   }
 };
 
-// Get all quizzes (localized based on user preference)
+// Get all quizzes (localized for user)
 export const getAllQuizzes = async (req, res) => {
   try {
     const quizzes = await Quiz.find();
@@ -21,51 +50,108 @@ export const getAllQuizzes = async (req, res) => {
 
     const localized = quizzes.map((q) => ({
       _id: q._id,
-      question: q.question?.[lang] || q.question?.en || "",
-      options: q.options.map((opt) => opt?.[lang] || opt?.en || ""),
-      correctAnswer: q.correctAnswer?.[lang] || q.correctAnswer?.en || "",
+      question: q.question?.[lang] || q.question?.en,
+      options: q.options.map((opt) => ({
+        optionId: opt.optionId,
+        text: opt?.[lang] || opt?.en,
+      })),
+      correctAnswer: {
+        optionId: q.correctAnswer.optionId,
+        text: q.correctAnswer?.[lang] || q.correctAnswer?.en,
+      },
       createdAt: q.createdAt,
       updatedAt: q.updatedAt,
     }));
 
-    res.status(200).json(localized);
+    res.status(200).json({ status: true, quizzes: localized });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ status: false, message: error.message });
   }
 };
 
-// Get quiz by ID (localized)
+// Get quizzes (full multilingual for admin)
+export const getAllQuizzesAll = async (req, res) => {
+  try {
+    const quizzes = await Quiz.find().lean();
+
+    res.status(200).json({
+      status: true,
+      message: "Quizzes returned in all languages",
+      quizzes,
+    });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+// Get quiz by ID (localized for user)
 export const getQuizById = async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
-    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+    if (!quiz)
+      return res.status(404).json({ status: false, message: "Quiz not found" });
 
     const user = await User.findById(req.user.id);
     const lang = user?.languagePreference || "en";
 
     const localizedQuiz = {
       _id: quiz._id,
-      question: quiz.question?.[lang] || quiz.question?.en || "",
-      options: quiz.options.map((opt) => opt?.[lang] || opt?.en || ""),
-      correctAnswer: quiz.correctAnswer?.[lang] || quiz.correctAnswer?.en || "",
+      question: quiz.question?.[lang] || quiz.question?.en,
+      options: quiz.options.map((opt) => ({
+        optionId: opt.optionId,
+        text: opt?.[lang] || opt?.en,
+      })),
+      correctAnswer: {
+        optionId: quiz.correctAnswer.optionId,
+        text: quiz.correctAnswer?.[lang] || quiz.correctAnswer?.en,
+      },
     };
 
-    res.status(200).json(localizedQuiz);
+    res.status(200).json({ status: true, quiz: localizedQuiz });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ status: false, message: error.message });
   }
 };
 
 // Update quiz
 export const updateQuiz = async (req, res) => {
   try {
-    const quiz = await Quiz.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
-    res.status(200).json({ message: "Quiz updated successfully", quiz });
+    let { question, options, correctAnswer } = req.body;
+
+    try {
+      question = typeof question === "string" ? JSON.parse(question) : question;
+    } catch {}
+    try {
+      options = typeof options === "string" ? JSON.parse(options) : options;
+    } catch {}
+    try {
+      correctAnswer =
+        typeof correctAnswer === "string"
+          ? JSON.parse(correctAnswer)
+          : correctAnswer;
+    } catch {}
+
+    const updatedQuiz = await Quiz.findByIdAndUpdate(
+      req.params.id,
+      {
+        question,
+        options: options.map((opt) => ({
+          optionId: opt.optionId || undefined,
+          ...opt,
+        })),
+        correctAnswer,
+      },
+      { new: true }
+    );
+
+    if (!updatedQuiz)
+      return res.status(404).json({ status: false, message: "Quiz not found" });
+
+    res
+      .status(200)
+      .json({ status: true, message: "Quiz updated", quiz: updatedQuiz });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ status: false, message: error.message });
   }
 };
 
@@ -73,37 +159,34 @@ export const updateQuiz = async (req, res) => {
 export const deleteQuiz = async (req, res) => {
   try {
     const quiz = await Quiz.findByIdAndDelete(req.params.id);
-    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
-    res.status(200).json({ message: "Quiz deleted successfully" });
+    if (!quiz)
+      return res.status(404).json({ status: false, message: "Quiz not found" });
+
+    res
+      .status(200)
+      .json({ status: true, message: "Quiz deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ status: false, message: error.message });
   }
 };
 
-// Submit answer
+// Submit answer (based on optionId)
 export const submitAnswer = async (req, res) => {
   try {
-    const { quizId, selectedAnswer } = req.body;
+    const { quizId, optionId } = req.body;
+
     const quiz = await Quiz.findById(quizId);
-    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+    if (!quiz)
+      return res.status(404).json({ status: false, message: "Quiz not found" });
 
-    const user = await User.findById(req.user.id);
-    const lang = user?.languagePreference || "en";
-
-    const correctAnswer =
-      quiz.correctAnswer?.[lang]?.trim().toLowerCase() ||
-      quiz.correctAnswer?.en?.trim().toLowerCase();
-
-    const selected =
-      String(selectedAnswer).trim().toLowerCase();
-
-    const isCorrect = correctAnswer === selected;
+    const isCorrect = String(quiz.correctAnswer.optionId) === String(optionId);
 
     res.status(200).json({
+      status: true,
       correct: isCorrect,
-      message: isCorrect ? "Correct answer!" : "Incorrect answer. Try again.",
+      message: isCorrect ? "Correct answer!" : "Wrong answer. Try again.",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ status: false, message: error.message });
   }
 };
