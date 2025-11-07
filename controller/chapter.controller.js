@@ -3,6 +3,22 @@ import Lesson from "../models/lessons.model.js";
 import User from "../models/user.model.js";
 import UserProgress from "../models/userProgress.model.js";
 
+const translate = (value, lang) => {
+  const parsed = parseIfJson(value);
+  if (typeof parsed === "string") return parsed;
+  if (typeof parsed === "object" && parsed !== null) {
+    return parsed[lang] || parsed.en || "";
+  }
+  return "";
+};
+
+const parseIfJson = (value) => {
+  if (typeof value === "string") {
+    try { return JSON.parse(value); } catch { return value; }
+  }
+  return value;
+};
+
 export const createChapter = async (req, res) => {
   try {
     let { title, intro, order } = req.body;
@@ -51,12 +67,13 @@ export const getAllChapters = async (req, res) => {
 
     const chapters = await Chapter.find().sort({ order: 1 });
 
-    const localizedChapters = chapters.map((chapter) => ({
-      _id: chapter._id,
-      order: chapter.order,
-      title: chapter.title[userLang] || chapter.title.en,
-      intro: chapter.intro[userLang] || chapter.intro.en,
-    }));
+    const localizedChapters = chapters.map((chapter, index) => ({
+  _id: chapter._id,
+  order: chapter.order,
+  title: chapter.title[userLang] || chapter.title.en,
+  intro: chapter.intro[userLang] || chapter.intro.en,
+  locked: index === 0 ? false : true, 
+}));
 
     res.status(200).json({
       message: `Chapters in ${userLang}`,
@@ -98,12 +115,15 @@ export const getAllChaptersWithLessons = async (req, res) => {
         videoUrl: lesson.videoUrl || "",
         thumbnail: lesson.thumbnail || "",
         question: safeText(lesson.question, userLang),
-        options:
-          Array.isArray(lesson.options) && lesson.options.length > 0
-            ? lesson.options.map((opt) => safeText(opt, userLang))
-            : [],
+       options: lesson.options.map((opt) => ({
+        optionId: opt.optionId,
+        text: translate(opt, userLang)
+      })),
         correctAnswer: safeText(lesson.correctAnswer, userLang),
-        locked: !progress?.unlockedLessons.includes(lesson._id),
+        locked:
+    lesson.order === 1
+      ? false
+      : !progress?.unlockedLessons.includes(lesson._id),
       });
       return acc;
     }, {});

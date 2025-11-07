@@ -9,14 +9,18 @@ const multilingualField = {
   kn: { type: String }
 };
 
-const optionSchema = new mongoose.Schema({
-  en: { type: String, required: true },
-  ml: { type: String },
-  ta: { type: String },
-  te: { type: String },
-  hi: { type: String },
-  kn: { type: String }
-});
+const optionSchema = new mongoose.Schema(
+  {
+    optionId: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
+    en: { type: String, required: true },
+    ml: { type: String },
+    ta: { type: String },
+    te: { type: String },
+    hi: { type: String },
+    kn: { type: String }
+  },
+  { _id: false } 
+);
 
 const lessonSchema = new mongoose.Schema({
   chapterId: {
