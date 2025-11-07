@@ -94,52 +94,56 @@ export const getAllChaptersWithLessons = async (req, res) => {
 
     const progress = await UserProgress.findOne({ userId });
 
-    // Fetch all chapters and lessons
     const chapters = await Chapter.find().sort({ order: 1 }).lean();
     const lessons = await Lesson.find().sort({ order: 1 }).lean();
 
-    // Group lessons by chapterId
     const lessonsByChapter = lessons.reduce((acc, lesson) => {
       const chapId = lesson.chapterId?.toString();
       if (!chapId) return acc;
 
-      const safeText = (obj, lang = "en") =>
-        typeof obj === "string" ? obj : (obj && (obj[lang] || obj.en)) || "";
-
       acc[chapId] = acc[chapId] || [];
+
+      // ✅ get correct option object
+      const correctOpt = lesson.options.find(
+        (opt) => opt.en === lesson.correctAnswer.en
+      );
+
       acc[chapId].push({
         _id: lesson._id,
         order: lesson.order,
-        title: safeText(lesson.title, userLang),
-        description: safeText(lesson.description, userLang),
+        title: translate(lesson.title, userLang),
+        description: translate(lesson.description, userLang),
         videoUrl: lesson.videoUrl || "",
         thumbnail: lesson.thumbnail || "",
-        question: safeText(lesson.question, userLang),
-       options: lesson.options.map((opt) => ({
-        optionId: opt.optionId,
-        text: translate(opt, userLang)
-      })),
-        correctAnswer: safeText(lesson.correctAnswer, userLang),
+        question: translate(lesson.question, userLang),
+
+        options: lesson.options.map((opt) => ({
+          optionId: opt.optionId,
+          text: translate(opt, userLang)
+        })),
+
+        // ✅ Return correctAnswer as object with ID and text
+        correctAnswer: correctOpt
+          ? {
+              optionId: correctOpt.optionId,
+              text: translate(correctOpt, userLang),
+            }
+          : null,
+
         locked:
-    lesson.order === 1
-      ? false
-      : !progress?.unlockedLessons.includes(lesson._id),
+          lesson.order === 1
+            ? false
+            : !progress?.unlockedLessons.includes(lesson._id),
       });
+
       return acc;
     }, {});
 
-    // Combine chapters with their lessons
     const data = chapters.map((chapter) => ({
       _id: chapter._id,
       order: chapter.order,
-      title:
-        typeof chapter.title === "string"
-          ? chapter.title
-          : chapter.title?.[userLang] || chapter.title?.en || "",
-      intro:
-        typeof chapter.intro === "string"
-          ? chapter.intro
-          : chapter.intro?.[userLang] || chapter.intro?.en || "",
+      title: translate(chapter.title, userLang),
+      intro: translate(chapter.intro, userLang),
       lessons: lessonsByChapter[chapter._id.toString()] || [],
     }));
 
@@ -153,6 +157,7 @@ export const getAllChaptersWithLessons = async (req, res) => {
     res.status(500).json({ status: false, message: err.message });
   }
 };
+
 
 export const updateChapter = async (req, res) => {
   try {
