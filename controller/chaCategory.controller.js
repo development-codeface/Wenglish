@@ -52,6 +52,24 @@ export const getAllCategories = async (req, res) => {
   }
 };
 
+export const getAllCategoriesAllLang = async (req, res) => {
+  try {
+    const categories = await ChatCategory.find().lean();
+
+    const formatted = categories.map((cat) => ({
+      _id: cat._id,
+      image: cat.image,
+      title: typeof cat.title === "object" ? cat.title : { en: cat.title },
+      description: typeof cat.description === "object" ? cat.description : { en: cat.description }
+    }));
+
+    res.status(200).json(formatted);
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+
 // Get a single category by ID — localized
 export const getCategoryById = async (req, res) => {
   try {

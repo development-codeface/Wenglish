@@ -49,6 +49,39 @@ export const getAllPlans = async (req, res) => {
   }
 };
 
+export const getAllPlansAllLang = async (req, res) => {
+  try {
+    const plans = await SubscriptionPlan.find().populate("discount").lean();
+
+    const formattedPlans = plans.map((plan) => ({
+      _id: plan._id,
+
+      // ✅ Return multilingual objects fully
+      title: typeof plan.title === "object" ? plan.title : { en: plan.title },
+      description: typeof plan.description === "object" ? plan.description : { en: plan.description },
+
+      imageUrl: plan.imageUrl,
+      price: plan.price,
+      duration: plan.duration,
+      days: plan.days,
+      isActive: plan.isActive,
+
+      // ✅ Discount may also need to carry multilingual — leave as is unless needed
+      discount: plan.discount || null,
+    }));
+
+    res.status(200).json({
+      status: true,
+      message: "Subscription plans returned in all languages",
+      plans: formattedPlans,
+    });
+
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+
 // Get plan by ID (localized)
 export const getPlanById = async (req, res) => {
   try {
@@ -83,7 +116,7 @@ export const updateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
      if (req.file) {
-      req.body.imageUrl = `/uploads/iamges/${req.file.filename}`;
+      req.body.imageUrl = `/uploads/images/${req.file.filename}`;
     }
     const updatedPlan = await SubscriptionPlan.findByIdAndUpdate(id, req.body, {
       new: true,
