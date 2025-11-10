@@ -15,7 +15,12 @@ const router = express.Router();
 router.post(
   "/",
   uploadLessonMedia.fields([
-    { name: "videoUrl", maxCount: 1 },
+    { name: "video_en", maxCount: 1 },
+    { name: "video_ml", maxCount: 1 },
+    { name: "video_ta", maxCount: 1 },
+    { name: "video_te", maxCount: 1 },
+    { name: "video_hi", maxCount: 1 },
+    { name: "video_kn", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 },
   ]),
   createLesson
@@ -26,7 +31,12 @@ router.post("/:lessonId/answer", authMiddleware, answerLessonQuestion);
 router.put(
   "/:lessonId",
   uploadLessonMedia.fields([
-    { name: "videoUrl", maxCount: 1 },
+    { name: "video_en", maxCount: 1 },
+    { name: "video_ml", maxCount: 1 },
+    { name: "video_ta", maxCount: 1 },
+    { name: "video_te", maxCount: 1 },
+    { name: "video_hi", maxCount: 1 },
+    { name: "video_kn", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 },
   ]),
   updateLesson

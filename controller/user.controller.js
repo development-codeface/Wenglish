@@ -1,6 +1,8 @@
 
 import User from "../models/user.model.js";
 import  Subscription  from "../models/subscription.model.js";
+import UserAnswer from "../models/onboardingUserAnswer.model.js";
+import Question from "../models/onboardingQstns.model.js";
 
 export const subscribeUser = async (req, res) => {
   try {
@@ -147,6 +149,55 @@ export const completeOnboarding = async (req, res) => {
     res.status(500).json({
       status: false,
       message: "Server error while updating onboarding status",
+    });
+  }
+};
+
+export const getAllUsersWithOnboardingAnswers = async (req, res) => {
+  try {
+    // Fetch all users
+    const users = await User.find().select("-password").lean();
+
+    // Fetch all answers grouped by user
+    const answers = await UserAnswer.find()
+      .populate("questionId", "questionText options") // bring full question & options
+      .lean();
+
+    // Group answers by userId
+    const userAnswersMap = {};
+    answers.forEach((ans) => {
+      if (!userAnswersMap[ans.userId]) userAnswersMap[ans.userId] = [];
+      userAnswersMap[ans.userId].push(ans);
+    });
+
+    // Create final formatted response
+    const result = users.map((user) => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      languagePreference: user.languagePreference,
+      subscription: user.subscription || null,
+      onboardingAnswers: (userAnswersMap[user._id] || []).map((ans) => ({
+        question: ans.questionId?.questionText || {},
+        selectedOptions: ans.answers.map((selectedId) => {
+          const option = ans.questionId?.options?.find(
+            (opt) => String(opt._id) === String(selectedId)
+          );
+          return option || null;
+        }).filter(Boolean),
+      })),
+    }));
+
+    return res.status(200).json({
+      status: true,
+      users: result,
+    });
+
+  } catch (error) {
+    console.error("Error fetching user onboarding data:", error);
+    res.status(500).json({
+      status: false,
+      message: "Error fetching user onboarding data",
     });
   }
 };
