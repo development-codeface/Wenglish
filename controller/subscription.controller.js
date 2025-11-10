@@ -115,9 +115,22 @@ export const getPlanById = async (req, res) => {
 export const updateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
-     if (req.file) {
+
+    if (typeof req.body.title === "string") {
+      req.body.title = JSON.parse(req.body.title);
+    }
+    if (typeof req.body.description === "string") {
+      req.body.description = JSON.parse(req.body.description);
+    }
+
+    if (typeof req.body.isActive === "string") {
+      req.body.isActive = req.body.isActive === "true";
+    }
+
+    if (req.file) {
       req.body.imageUrl = `/uploads/images/${req.file.filename}`;
     }
+
     const updatedPlan = await SubscriptionPlan.findByIdAndUpdate(id, req.body, {
       new: true,
       runValidators: true,
@@ -127,13 +140,15 @@ export const updateSubscriptionPlan = async (req, res) => {
       return res.status(404).json({ message: "Subscription plan not found" });
     }
 
-    res
-      .status(200)
-      .json({ message: "Subscription plan updated", plan: updatedPlan });
+    return res.status(200).json({
+      message: "Subscription plan updated",
+      plan: updatedPlan,
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 };
+
 
 // Delete a plan by ID
 export const deleteSubscriptionPlan = async (req, res) => {

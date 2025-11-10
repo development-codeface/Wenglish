@@ -49,6 +49,23 @@ export const getDiscounts = async (req, res) => {
   }
 };
 
+export const getDiscountsAllLang = async (req, res) => {
+  try {
+    const discounts = await Discount.find({ isActive: true });
+
+    const allLangDiscounts = discounts.map((d) => ({
+      ...d._doc,
+      titles: d.title,
+      descriptions: d.description || {}, 
+    }));
+
+    res.status(200).json(allLangDiscounts);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 // Get discount by ID with language selection
 export const getDiscountById = async (req, res) => {
   try {

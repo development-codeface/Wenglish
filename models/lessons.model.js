@@ -9,6 +9,15 @@ const multilingualField = {
   kn: { type: String }
 };
 
+const multilingualVideoField = {
+  en: { type: String, default: "" },
+  ml: { type: String, default: "" },
+  ta: { type: String, default: "" },
+  te: { type: String, default: "" },
+  hi: { type: String, default: "" },
+  kn: { type: String, default: "" }
+};
+
 const optionSchema = new mongoose.Schema(
   {
     optionId: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
@@ -30,7 +39,7 @@ const lessonSchema = new mongoose.Schema({
   },
   title: multilingualField,
   description: multilingualField,
-  videoUrl: { type: String, required: true },
+  videoUrl: multilingualVideoField,
   thumbnail: { type: String },
   question: multilingualField,
   options: [optionSchema],

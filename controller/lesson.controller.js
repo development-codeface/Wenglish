@@ -24,15 +24,13 @@ const translate = (value, lang) => {
   return "";
 };
 
-// ✅ Create Lesson
+// Create Lesson
 export const createLesson = async (req, res) => {
   try {
     let {
       chapterId,
       title,
       description,
-      videoUrl,
-      thumbnail,
       question,
       correctAnswer,
       order,
@@ -43,18 +41,26 @@ export const createLesson = async (req, res) => {
     description = parseIfJson(description);
     question = parseIfJson(question);
     correctAnswer = parseIfJson(correctAnswer);
-    options = parseIfJson(options);
+    options = parseIfJson(options) || [];
 
-    // Ensure optionId for each option
     options = options.map((opt) => ({
       optionId: opt.optionId || new mongoose.Types.ObjectId(),
       ...opt,
     }));
 
-    if (req.files?.videoUrl) videoUrl = req.files.videoUrl[0].path;
-    if (req.files?.thumbnail) thumbnail = req.files.thumbnail[0].path;
+    // Collect videos per language
+    const videoUrl = {
+      en: req.files?.video_en?.[0]?.path || "",
+      ml: req.files?.video_ml?.[0]?.path || "",
+      ta: req.files?.video_ta?.[0]?.path || "",
+      te: req.files?.video_te?.[0]?.path || "",
+      hi: req.files?.video_hi?.[0]?.path || "",
+      kn: req.files?.video_kn?.[0]?.path || "",
+    };
 
-    const lesson = new Lesson({
+    const thumbnail = req.files?.thumbnail?.[0]?.path || "";
+
+    const lesson = await Lesson.create({
       chapterId,
       title,
       description,
@@ -66,7 +72,6 @@ export const createLesson = async (req, res) => {
       options,
     });
 
-    await lesson.save();
     return res.status(201).json({ status: true, message: "Lesson created", lesson });
 
   } catch (err) {
@@ -74,7 +79,8 @@ export const createLesson = async (req, res) => {
   }
 };
 
-// ✅ Get Lessons (User View - Only Preferred Language)
+
+//Get Lessons (User View - Only Preferred Language)
 export const getLessonsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.params;
@@ -108,7 +114,7 @@ export const getLessonsByChapter = async (req, res) => {
         videoUrl: lesson.videoUrl,
         thumbnail: lesson.thumbnail,
 
-        // ✅ Always unlock first lesson
+        // Always unlock first lesson
         locked: lesson.order === 1 ? false : !progress?.unlockedLessons.includes(lesson._id),
       };
     });
@@ -120,64 +126,64 @@ export const getLessonsByChapter = async (req, res) => {
   }
 };
 
-// ✅ Get Lessons (Admin / Full View)
+// Get Lessons (Admin / Full View)
 export const getLessonsByChapterAll = async (req, res) => {
   try {
     const { chapterId } = req.params;
     const userId = req.user.id;
-    const user = await User.findById(userId);
-    const lang = user?.languagePreference || "en";
 
     const progress = await UserProgress.findOne({ userId });
     const chapter = await Chapter.findById(chapterId);
     const lessons = await Lesson.find({ chapterId }).sort({ order: 1 });
 
+    if (!chapter) {
+      return res.status(404).json({ status: false, message: "Chapter not found" });
+    }
+
     const chapterResponse = {
       _id: chapter._id,
       order: chapter.order,
-      title: translate(chapter.title, lang),
-      intro: translate(chapter.intro, lang),
+      title: chapter.title,     // include all languages
+      intro: chapter.intro,     // include all languages
     };
 
-    const lessonsResponse = lessons.map((lesson) => {
-      const correctOpt = lesson.options.find(o => o.en === lesson.correctAnswer.en);
-
-      return {
-        _id: lesson._id,
-        chapterId: lesson.chapterId,
-        order: lesson.order,
-        title: translate(lesson.title, lang),
-        description: translate(lesson.description, lang),
-        question: translate(lesson.question, lang),
-        options: lesson.options.map((opt) => ({
-          optionId: opt.optionId,
-          text: translate(opt, lang)
-        })),
-        correctAnswer: correctOpt ? {
-          optionId: correctOpt.optionId,
-          text: translate(correctOpt, lang)
-        } : null,
-        videoUrl: lesson.videoUrl,
-        thumbnail: lesson.thumbnail,
-
-        // ✅ First lesson always unlocked
-        locked: lesson.order === 1 ? false : !progress?.unlockedLessons.includes(lesson._id),
-      };
-    });
+    const lessonsResponse = lessons.map((lesson) => ({
+      _id: lesson._id,
+      chapterId: lesson.chapterId,
+      order: lesson.order,
+      title: lesson.title,              // all languages
+      description: lesson.description,  // all languages
+      question: lesson.question,        // all languages
+      options: lesson.options.map((opt) => ({
+        optionId: opt.optionId,
+        en: opt.en,
+        ml: opt.ml,
+        ta: opt.ta,
+        te: opt.te,
+        hi: opt.hi,
+        kn: opt.kn
+      })),
+      correctAnswer: lesson.correctAnswer,  // multilingual correct answer
+      videoUrl: lesson.videoUrl,            // multilingual URLs
+      thumbnail: lesson.thumbnail,
+      locked: lesson.order === 1 ? false : !progress?.unlockedLessons.includes(lesson._id)
+    }));
 
     return res.status(200).json({
       status: true,
-      message: "Data returned",
+      message: "All language data returned successfully",
       chapter: chapterResponse,
-      lessons: lessonsResponse,
+      lessons: lessonsResponse
     });
 
   } catch (err) {
+    console.error("Error in getLessonsByChapterAll:", err);
     return res.status(500).json({ status: false, message: err.message });
   }
 };
 
-// ✅ Answer Submission (Check by optionId only)
+
+// Answer Submission (Check by optionId only)
 export const answerLessonQuestion = async (req, res) => {
   try {
     const { lessonId } = req.params;
@@ -220,7 +226,7 @@ export const answerLessonQuestion = async (req, res) => {
   }
 };
 
-// ✅ Update Lesson
+// Update Lesson
 export const updateLesson = async (req, res) => {
   try {
     const { lessonId } = req.params;
@@ -243,8 +249,27 @@ export const updateLesson = async (req, res) => {
       lesson.options = options;
     }
 
-    if (req.files?.videoUrl) lesson.videoUrl = req.files.videoUrl[0].path;
-    if (req.files?.thumbnail) lesson.thumbnail = req.files.thumbnail[0].path;
+    //  Update per-language videos only if replaced
+    const videoFields = {
+      en: "video_en",
+      ml: "video_ml",
+      ta: "video_ta",
+      te: "video_te",
+      hi: "video_hi",
+      kn: "video_kn",
+    };
+
+    for (const lang in videoFields) {
+      const field = videoFields[lang];
+      if (req.files?.[field]?.[0]?.path) {
+        lesson.videoUrl[lang] = req.files[field][0].path;
+      }
+    }
+
+    //  Update thumbnail
+    if (req.files?.thumbnail?.[0]?.path) {
+      lesson.thumbnail = req.files.thumbnail[0].path;
+    }
 
     if (req.body.order) lesson.order = req.body.order;
 
@@ -256,7 +281,8 @@ export const updateLesson = async (req, res) => {
   }
 };
 
-// ✅ Delete Lesson
+
+//  Delete Lesson
 export const deleteLesson = async (req, res) => {
   try {
     const { lessonId } = req.params;
