@@ -11,13 +11,21 @@ export const createSubTopic = async (req, res) => {
       return res.status(404).json({ message: "Topic not found" });
     }
 
+    let question = JSON.parse(req.body.question);
+    let correctAnswers = JSON.parse(req.body.correctAnswers);
+    let fullWord = JSON.parse(req.body.fullWord);
+    let hint = req.body.hint ? JSON.parse(req.body.hint) : {};
+    let letters = req.body.letters ? JSON.parse(req.body.letters) : [];
+
     const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : "";
 
     const subTopic = new SubTopicAtoZ({
       topicId,
-      question: JSON.parse(req.body.question),
-      correctAnswers: JSON.parse(req.body.correctAnswers),
-      fullWord: JSON.parse(req.body.fullWord),
+      question,
+      correctAnswers,
+      fullWord,
+      hint,
+      letters,
       imageUrl,
     });
 
@@ -30,7 +38,7 @@ export const createSubTopic = async (req, res) => {
 };
 
 
-// Get all subtopics (localized by user language)
+// Get all subtopics (localized)
 export const getAllSubTopics = async (req, res) => {
   try {
     const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
@@ -46,6 +54,11 @@ export const getAllSubTopics = async (req, res) => {
       question: s.question?.[userLang] || s.question?.en,
       correctAnswers: s.correctAnswers?.[userLang] || s.correctAnswers?.en,
       fullWord: s.fullWord?.[userLang] || s.fullWord?.en,
+      hint: s.hint?.[userLang] || s.hint?.en || "",
+      letters: s.letters?.map((l) => ({
+        _id: l._id,
+        value: l[userLang] || l.en
+      })) || [],
       imageUrl: s.imageUrl,
       topic: s.topicId
         ? {
@@ -53,7 +66,7 @@ export const getAllSubTopics = async (req, res) => {
             description: s.topicId.description?.[userLang] || s.topicId.description?.en,
             imageUrl: s.topicId.imageUrl
           }
-        : null
+        : null,
     }));
 
     res.status(200).json(localizedSubTopics);
@@ -63,6 +76,7 @@ export const getAllSubTopics = async (req, res) => {
 };
 
 
+// Return all languages (no localization)
 export const getAllSubTopicsAllLanguages = async (req, res) => {
   try {
     const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
@@ -77,18 +91,12 @@ export const getAllSubTopicsAllLanguages = async (req, res) => {
       subTopics: subTopics.map((s) => ({
         _id: s._id,
         topicId: s.topicId?._id,
-        question: s.question,        
+        question: s.question,
         correctAnswers: s.correctAnswers,
         fullWord: s.fullWord,
+        hint: s.hint,
+        letters: s.letters,
         imageUrl: s.imageUrl,
-        topic: s.topicId
-          ? {
-              _id: s.topicId._id,
-              title: s.topicId.title,     
-              description: s.topicId.description,
-              imageUrl: s.topicId.imageUrl,
-            }
-          : null,
       })),
     });
 
@@ -106,24 +114,28 @@ export const getSubTopicById = async (req, res) => {
 
     const userLang = req.user?.languagePreference || "en";
 
-    const localized = {
+    res.status(200).json({
       _id: subTopic._id,
       question: subTopic.question?.[userLang] || subTopic.question?.en,
       correctAnswers: subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en,
       fullWord: subTopic.fullWord?.[userLang] || subTopic.fullWord?.en,
+      hint: subTopic.hint?.[userLang] || subTopic.hint?.en || "",
+      letters: subTopic.letters?.map((l) => ({
+        _id: l._id,
+        value: l[userLang] || l.en
+      })) || [],
       imageUrl: subTopic.imageUrl,
       topic: {
         title: subTopic.topicId?.title,
         description: subTopic.topicId?.description,
         imageUrl: subTopic.topicId?.imageUrl,
       },
-    };
-
-    res.status(200).json(localized);
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Update subtopic
 export const updateSubTopic = async (req, res) => {
@@ -131,33 +143,29 @@ export const updateSubTopic = async (req, res) => {
     const existing = await SubTopicAtoZ.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: "Subtopic not found" });
 
-    const imageUrl = req.file
-      ? `/uploads/images/${req.file.filename}`
-      : existing.imageUrl;
+    const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : existing.imageUrl;
 
     const updatedData = {
       topicId: req.body.topicId || existing.topicId,
       question: req.body.question ? JSON.parse(req.body.question) : existing.question,
-      correctAnswers: req.body.correctAnswers
-        ? JSON.parse(req.body.correctAnswers)
-        : existing.correctAnswers,
-      fullWord: req.body.fullWord
-        ? JSON.parse(req.body.fullWord)
-        : existing.fullWord,
+      correctAnswers: req.body.correctAnswers ? JSON.parse(req.body.correctAnswers) : existing.correctAnswers,
+      fullWord: req.body.fullWord ? JSON.parse(req.body.fullWord) : existing.fullWord,
+      hint: req.body.hint ? JSON.parse(req.body.hint) : existing.hint,
+      letters: req.body.letters ? JSON.parse(req.body.letters) : existing.letters,
       imageUrl,
     };
 
-    const updated = await SubTopicAtoZ.findByIdAndUpdate(
-      req.params.id,
-      updatedData,
-      { new: true, runValidators: true }
-    );
+    const updated = await SubTopicAtoZ.findByIdAndUpdate(req.params.id, updatedData, {
+      new: true,
+      runValidators: true,
+    });
 
     res.status(200).json({ message: "Subtopic updated successfully", updated });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 
 // Delete subtopic
@@ -171,11 +179,12 @@ export const deleteSubTopic = async (req, res) => {
   }
 };
 
-// Answer a subtopic question (auto-localized)
+
+// Answer a subtopic question (using letter ids)
 export const answerSubTopic = async (req, res) => {
   try {
     const { id } = req.params;
-    const { selectedWord } = req.body;
+    const { selectedLetterId } = req.body; 
 
     const userLang = req.user?.languagePreference || "en";
 
@@ -184,30 +193,33 @@ export const answerSubTopic = async (req, res) => {
       return res.status(404).json({ message: "Subtopic not found" });
     }
 
-    // Get correct answer (localized)
-    const correctAnswer =
-      subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en || "";
+  
+    const correctText = subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en;
+    const correctLetter = subTopic.letters.find(
+      (l) => (l[userLang] || l.en) === correctText
+    );
 
-    // Compare user input with correct answer
-    const isCorrect =
-      selectedWord?.trim().toLowerCase() ===
-      correctAnswer?.trim().toLowerCase();
+    if (!correctLetter) {
+      return res.status(400).json({ message: "Correct letter not found in letters array" });
+    }
 
-    const fullWord =
-      subTopic.fullWord?.[userLang] || subTopic.fullWord?.en || "";
+    const isCorrect = selectedLetterId === correctLetter._id.toString();
 
     res.status(200).json({
       subTopicId: subTopic._id,
-      selectedWord,
-      correctAnswer,
-      fullWord,
+      selectedLetterId,
+      correctLetterId: correctLetter._id,
+      correctValue: correctLetter[userLang] || correctLetter.en,
+      fullWord: subTopic.fullWord?.[userLang] || subTopic.fullWord?.en,
       userLanguage: userLang,
       isCorrect,
       message: isCorrect
-        ? "Correct answer!"
-        : `Incorrect. The correct missing part is "${correctAnswer}", forming the word "${fullWord}".`,
+        ? " Correct!"
+        : ` Incorrect. Correct letter is "${correctLetter[userLang] || correctLetter.en}".`
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
