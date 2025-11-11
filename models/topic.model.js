@@ -14,6 +14,7 @@ const topicSchema = new mongoose.Schema(
     title: { type: localizedFieldSchema, required: true },
     description: { type: localizedFieldSchema, required: true },
     imageUrl: { type: String, required: true },
+    redirect:{ type: String, enum: ["mcq", "topic"], required: true }
   },
   { timestamps: true }
 );
