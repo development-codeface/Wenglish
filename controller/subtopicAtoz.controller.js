@@ -34,6 +34,7 @@ export const createSubTopic = async (req, res) => {
 export const getAllSubTopics = async (req, res) => {
   try {
     const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
+
     const subTopics = await SubTopicAtoZ.find(filter)
       .populate("topicId", "title description imageUrl")
       .sort({ createdAt: -1 });
@@ -46,11 +47,13 @@ export const getAllSubTopics = async (req, res) => {
       correctAnswers: s.correctAnswers?.[userLang] || s.correctAnswers?.en,
       fullWord: s.fullWord?.[userLang] || s.fullWord?.en,
       imageUrl: s.imageUrl,
-      topic: {
-        title: s.topicId?.title,
-        description: s.topicId?.description,
-        imageUrl: s.topicId?.imageUrl,
-      },
+      topic: s.topicId
+        ? {
+            title: s.topicId.title?.[userLang] || s.topicId.title?.en,
+            description: s.topicId.description?.[userLang] || s.topicId.description?.en,
+            imageUrl: s.topicId.imageUrl
+          }
+        : null
     }));
 
     res.status(200).json(localizedSubTopics);
@@ -58,6 +61,7 @@ export const getAllSubTopics = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 export const getAllSubTopicsAllLanguages = async (req, res) => {
   try {
