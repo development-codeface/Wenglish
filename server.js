@@ -22,6 +22,7 @@ import { fileURLToPath } from 'url';
 import whyLearn from './routes/whyLearn.routes.js'; 
 import cors from 'cors';
 import onBoardQstns from './routes/onboarding.routes.js';
+import grammerSubTopic from './routes/grammarSubTopics.js';
 
 dotenv.config();
 connectDB();
@@ -57,6 +58,7 @@ app.use("/api/atoz", atozRoutes);
 app.use("/api/topics", topics);
 app.use("/api/why-learn", whyLearn);
 app.use("/api/onboarding-questions", onBoardQstns);
+app.use("/api/grammar-subtopics", grammerSubTopic);
 const server = http.createServer(app);
 
 initChatSocket(server);
