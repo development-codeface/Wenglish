@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import User from "../models/user.model.js";
+import GrammarSubtopic from "../models/grammerSubTopic.model.js";
+
 
 
 const model = new ChatGoogleGenerativeAI({
@@ -112,3 +114,63 @@ Keep it simple and suitable for kids.
     return "Sorry, I couldn’t generate the learning content right now.";
   }
 };
+
+export const getGrammarTutorResponse = async (subtopicId, userInput, userId) => {
+  try {
+    // 1. Get user language
+    const user = await User.findById(userId);
+    const language = user?.languagePreference || "en";
+
+    // 2. Get grammar topic details
+    const subtopic = await GrammarSubtopic.findById(subtopicId);
+    if (!subtopic) {
+      return { reply: "Grammar topic not found.", correctedInput: null };
+    }
+
+    const topicTitle = subtopic.title?.[language] || subtopic.title?.en;
+    const topicDescription = subtopic.description?.[language] || subtopic.description?.en;
+
+    // 3. Correct the user's input humanly
+    let correctedInput = await correctUserInput(userInput, language);
+
+    // If no correction needed → keep their original input
+    if (correctedInput.includes("✅ Looks good!")) {
+      correctedInput = userInput;
+    }
+
+    // 4. Conversation prompt for grammar teaching
+    const messages = [
+      new SystemMessage(
+        `You are a friendly language tutor teaching the concept of "${topicTitle}".
+Explain in language: ${language}.
+
+Use this structure:
+1) Short, simple definition (2-4 sentences).
+2) Give 1–2 easy examples in ${language}.
+3) Ask the user to try making a sentence using the concept.
+
+Do NOT use emojis. Keep tone simple and natural.`
+      ),
+      new HumanMessage(correctedInput)
+    ];
+
+    // 5. LLM Response
+    const response = await model.invoke(messages);
+
+    return {
+      reply: response.content,
+      correctedInput,
+      language,
+      topic: topicTitle
+    };
+
+  } catch (error) {
+    console.error("Grammar Tutor Error:", error);
+    return {
+      reply: "Sorry, I couldn't teach this right now.",
+      correctedInput: null,
+    };
+  }
+};
+
+
