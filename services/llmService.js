@@ -44,40 +44,65 @@ Never use emojis.`
 
 export const getCategoryChatResponse = async (category, userInput, userId) => {
   try {
-    // Fetch user's preferred language from DB
+    // 🔒 Validate input
+    if (!userInput || !userInput.trim()) {
+      return {
+        reply: "Please type something for me to respond to.",
+        correctedInput: null,
+        language: "en"
+      };
+    }
+
+    // 🧠 Get user language
     const user = await User.findById(userId);
     const language = user?.languagePreference || "en";
 
-    const conversationHistory = [
+    // 🧹 Clean the input
+    const rawInput = userInput.trim();
+
+    // 🧩 Step 1: Correct input safely
+    let correctedInput = await correctUserInput(rawInput, language);
+
+    // Fallback — if correction failed or returned nothing
+    if (!correctedInput || typeof correctedInput !== "string" || !correctedInput.trim()) {
+      correctedInput = rawInput;
+    }
+
+    // Step 2: Build safe system + human messages
+    const messages = [
       new SystemMessage(
-        `You are a friendly AI assistant who talks about ${category}.
-Your language for this chat is ${language}.
-Use short, natural sentences in ${language}.
-If the user makes mistakes, correct them naturally in ${language} without sounding robotic.`
+        `You are a friendly AI assistant who helps users talk about ${category} in only ${language}.
+Respond only in ${language}.
+Keep your sentences short, natural, and clear.
+If the user makes a grammar mistake, correct it gently in ${language}.`
       ),
+      new HumanMessage(correctedInput.trim())
     ];
 
-    // Correct the user input in their language
-    const correctedInput = await correctUserInput(userInput, language);
+    // Step 3: Guard before invoking Gemini
+    const hasEmpty = messages.some(
+      (msg) => !msg.content || !msg.content.trim()
+    );
+    if (hasEmpty) {
+      console.error("⚠️ Gemini prompt empty. Messages:", messages);
+      return { reply: "I didn’t get that clearly.", correctedInput, language };
+    }
 
-    conversationHistory.push(new HumanMessage(correctedInput));
+    // Step 4: Send to Gemini safely
+    const response = await model.invoke(messages);
 
-    // Get LLM response in that language
-    const response = await model.invoke(conversationHistory);
+    const replyText = response?.content?.trim() || "I’m here! Let’s talk.";
 
-    return {
-      reply: response.content,
-      correctedInput,
-      language,
-    };
+    return { reply: replyText, correctedInput, language };
   } catch (error) {
     console.error("Error in category chat:", error);
     return {
-      reply: "Error generating response",
+      reply: "Sorry, I couldn't generate a response right now.",
       correctedInput: null,
     };
   }
 };
+
 export const getResponseFromLLM = async (message) => {
   try {
     conversationHistory.push(new HumanMessage(message));
