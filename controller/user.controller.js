@@ -13,6 +13,7 @@ export const subscribeUser = async (req, res) => {
     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
     let finalPrice = plan.price;
+    const planName = plan.title.en;
 
     if (plan.discount && plan.discount.isActive) {
       const discountPercentage = plan.discount.discountPercentage || 0;
@@ -30,6 +31,7 @@ export const subscribeUser = async (req, res) => {
       plan: plan._id,
       startDate,
       endDate,
+      planName:planName,
       isActive: true,
       pricePaid: finalPrice,
       originalPrice: plan.price,
