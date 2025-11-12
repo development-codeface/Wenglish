@@ -29,25 +29,55 @@ export const getAllPlans = async (req, res) => {
   try {
     const userLang = req.user?.languagePreference || "en";
 
-    const plans = await SubscriptionPlan.find().populate("discount");
+    const plans = await SubscriptionPlan.find()
+      .populate("discount")
+      .lean();
 
-    const localizedPlans = plans.map((plan) => ({
-      _id: plan._id,
-      title: plan.title[userLang] || plan.title.en,
-      description: plan.description[userLang] || plan.description.en,
-      imageUrl: plan.imageUrl,
-      price: plan.price,
-      duration: plan.duration,
-      days: plan.days,
-      isActive: plan.isActive,
-      discount: plan.discount,
-    }));
+    const localizedPlans = plans.map((plan) => {
+      const discountActive = plan.discount?.isActive && plan.discount?.discountPercentage > 0;
+
+      // Compute discounted price if applicable
+      const discountPercentage = discountActive ? plan.discount.discountPercentage : 0;
+      const discountPrice = discountActive
+        ? +(plan.price - (plan.price * discountPercentage) / 100).toFixed(2)
+        : plan.price;
+
+      return {
+        _id: plan._id,
+        title: plan.title[userLang] || plan.title.en,
+        description: plan.description[userLang] || plan.description.en,
+        imageUrl: plan.imageUrl,
+        isActive: plan.isActive,
+        duration: plan.duration,
+        days: plan.days,
+
+        // 💰 Pricing details
+        actualPrice: plan.price,
+        discountPercentage,
+        discountPrice,
+
+        // 🏷 Discount info (optional)
+        discount: discountActive
+          ? {
+              _id: plan.discount._id,
+              title: plan.discount.title[userLang] || plan.discount.title.en,
+              description:
+                plan.discount.description?.[userLang] ||
+                plan.discount.description?.en ||
+                "",
+              discountPercentage: plan.discount.discountPercentage,
+              image: plan.discount.image || "",
+            }
+          : null,
+      };
+    });
 
     res.status(200).json(localizedPlans);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 export const getAllPlansAllLang = async (req, res) => {
   try {
@@ -88,33 +118,62 @@ export const getPlanById = async (req, res) => {
     const user = await User.findById(req.user?._id);
     const userLang = user?.languagePreference || "en";
 
-    const plan = await SubscriptionPlan.findById(req.params.id).populate(
-      "discount"
-    );
+    const plan = await SubscriptionPlan.findById(req.params.id)
+      .populate("discount")
+      .lean();
+
     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
-    const localized = {
+    const discountActive = plan.discount?.isActive && plan.discount?.discountPercentage > 0;
+    const discountPercentage = discountActive ? plan.discount.discountPercentage : 0;
+    const discountPrice = discountActive
+      ? +(plan.price - (plan.price * discountPercentage) / 100).toFixed(2)
+      : plan.price;
+
+    const localizedPlan = {
       _id: plan._id,
       title: plan.title[userLang] || plan.title.en,
       description: plan.description[userLang] || plan.description.en,
       imageUrl: plan.imageUrl,
-      price: plan.price,
       duration: plan.duration,
       days: plan.days,
       isActive: plan.isActive,
-      discount: plan.discount,
+
+      // 💰 Pricing details
+      actualPrice: plan.price,
+      discountPercentage,
+      discountPrice,
+
+      // 🏷 Discount info (optional)
+      discount: discountActive
+        ? {
+            _id: plan.discount._id,
+            title: plan.discount.title[userLang] || plan.discount.title.en,
+            description:
+              plan.discount.description?.[userLang] ||
+              plan.discount.description?.en ||
+              "",
+            discountPercentage: plan.discount.discountPercentage,
+            image: plan.discount.image || "",
+          }
+        : null,
     };
 
-    res.status(200).json(localized);
+    res.status(200).json(localizedPlan);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+
 // Update a plan by ID
 export const updateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
+
+      if (req.body.discount === "" || req.body.discount === "null") {
+      req.body.discount = null;
+    }
 
     if (typeof req.body.title === "string") {
       req.body.title = JSON.parse(req.body.title);
