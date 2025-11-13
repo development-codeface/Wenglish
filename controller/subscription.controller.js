@@ -67,6 +67,11 @@ export const getAllPlans = async (req, res) => {
                 "",
               discountPercentage: plan.discount.discountPercentage,
               image: plan.discount.image || "",
+              days: plan.discount.days,
+      actualPrice: plan.discount.actualPrice,
+      discountPrice: plan.discount.discountPrice,
+            duration: plan.discount.duration,
+
             }
           : null,
       };
