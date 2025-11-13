@@ -3,9 +3,18 @@ import Discount from "../models/discount.model.js";
 // Create a new multilingual discount
 export const createDiscount = async (req, res) => {
   try {
-    let { title, description, discountPercentage, isActive } = req.body;
+    let {
+      title,
+      description,
+      discountPercentage,
+      isActive,
+      duration,
+      days,
+      actualPrice,
+      discountPrice
+    } = req.body;
 
-    // Parse multilingual fields if sent as JSON strings
+    // Parse multilingual JSON strings if needed
     if (typeof title === "string") title = JSON.parse(title);
     if (typeof description === "string") description = JSON.parse(description);
 
@@ -20,7 +29,14 @@ export const createDiscount = async (req, res) => {
       description,
       discountPercentage,
       isActive: isActive !== undefined ? isActive : true,
-      image: req.file ? `/uploads/discounts/${req.file.filename}` : "",
+
+      image: req.file ? `/uploads/images/${req.file.filename}` : "",
+
+      // NEW FIELDS
+      duration,
+      days,
+      actualPrice,
+      discountPrice,
     });
 
     await discount.save();
@@ -31,10 +47,11 @@ export const createDiscount = async (req, res) => {
   }
 };
 
+
 // Get all active discounts (with optional language filter)
 export const getDiscounts = async (req, res) => {
   try {
-    const lang = req.user?.languagePreference || "en"; 
+    const lang = req.user?.languagePreference || "en";
     const discounts = await Discount.find({ isActive: true });
 
     const localizedDiscounts = discounts.map((d) => ({
@@ -49,24 +66,7 @@ export const getDiscounts = async (req, res) => {
   }
 };
 
-export const getDiscountsAllLang = async (req, res) => {
-  try {
-    const discounts = await Discount.find({ isActive: true });
 
-    const allLangDiscounts = discounts.map((d) => ({
-      ...d._doc,
-      titles: d.title,
-      descriptions: d.description || {}, 
-    }));
-
-    res.status(200).json(allLangDiscounts);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-
-// Get discount by ID with language selection
 export const getDiscountById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -87,6 +87,44 @@ export const getDiscountById = async (req, res) => {
   }
 };
 
+
+
+// Get discount by ID with language selection
+export const getDiscountsAllLang = async (req, res) => {
+  try {
+    const discounts = await Discount.find({ isActive: true });
+
+    const allLangDiscounts = discounts.map((d) => ({
+      _id: d._id,
+
+      // full multilingual title + description
+      title: d.title,
+      description: d.description || {},
+
+      // image
+      image: d.image,
+
+      // discount info
+      discountPercentage: d.discountPercentage,
+      isActive: d.isActive,
+
+      // ⭐ NEW FIELDS INCLUDED HERE
+      duration: d.duration,
+      days: d.days,
+      actualPrice: d.actualPrice,
+      discountPrice: d.discountPrice,
+
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+    }));
+
+    res.status(200).json(allLangDiscounts);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 // Update a discount (multilingual-safe)
 export const updateDiscount = async (req, res) => {
   try {
@@ -97,8 +135,10 @@ export const updateDiscount = async (req, res) => {
       updates.image = `/uploads/images/${req.file.filename}`;
     }
 
+    // Parse multilingual JSON if needed
     if (updates.title) updates.title = JSON.parse(updates.title);
     if (updates.description) updates.description = JSON.parse(updates.description);
+
 
     const updated = await Discount.findByIdAndUpdate(id, updates, {
       new: true,
@@ -106,11 +146,16 @@ export const updateDiscount = async (req, res) => {
     });
 
     if (!updated) return res.status(404).json({ message: "Discount not found" });
-    res.status(200).json({ message: "Discount updated", discount: updated });
+
+    res.status(200).json({
+      message: "Discount updated",
+      discount: updated,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // Delete a discount by ID
 export const deleteDiscount = async (req, res) => {
