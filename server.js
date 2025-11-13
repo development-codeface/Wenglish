@@ -24,7 +24,8 @@ import cors from 'cors';
 import onBoardQstns from './routes/onboarding.routes.js';
 import grammerSubTopic from './routes/grammarSubTopics.js';
 import userPerfomance from './routes/getUserPerfomance.routes.js';  
-
+import languages from './routes/language.routes.js';
+import payments from './routes/payments.routes.js';
 dotenv.config();
 connectDB();
 
@@ -61,6 +62,8 @@ app.use("/api/why-learn", whyLearn);
 app.use("/api/onboarding-questions", onBoardQstns);
 app.use("/api/grammar-subtopics", grammerSubTopic);
 app.use("/api/user-performance", userPerfomance);
+app.use("/api/languages", languages);
+app.use("/api/payments", payments);
 const server = http.createServer(app);
 
 initChatSocket(server);

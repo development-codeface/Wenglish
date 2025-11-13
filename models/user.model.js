@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
       startDate: { type: Date },
       endDate: { type: Date },
       isActive: { type: Boolean, default: false },
+      planName: { type: String }, 
     },
     lastActive: { type: Date, default: null },
     profileImage: { type: String, default: "" },
