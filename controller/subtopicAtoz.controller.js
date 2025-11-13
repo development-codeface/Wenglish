@@ -1,5 +1,6 @@
 import SubTopicAtoZ from "../models/subtopicAtoZ.model.js";
 import Topic from "../models/topic.model.js";
+import UserPerformance from "../models/perfomance.model.js";
 
 // Create a new subtopic
 export const createSubTopic = async (req, res) => {
@@ -185,7 +186,7 @@ export const answerSubTopic = async (req, res) => {
   try {
     const { id } = req.params;
     const { selectedLetterId } = req.body; 
-
+    const userId = req.user?._id; 
     const userLang = req.user?.languagePreference || "en";
 
     const subTopic = await SubTopicAtoZ.findById(id);
@@ -193,7 +194,6 @@ export const answerSubTopic = async (req, res) => {
       return res.status(404).json({ message: "Subtopic not found" });
     }
 
-  
     const correctText = subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en;
     const correctLetter = subTopic.letters.find(
       (l) => (l[userLang] || l.en) === correctText
@@ -205,6 +205,26 @@ export const answerSubTopic = async (req, res) => {
 
     const isCorrect = selectedLetterId === correctLetter._id.toString();
 
+    // Track performance
+    if (userId) {
+      let record = await UserPerformance.findOne({ userId, subTopicId: id });
+
+      if (!record) {
+        record = new UserPerformance({ userId, subTopicId: id });
+      }
+
+      record.attempts += 1;
+      record.lastAttemptedAt = Date.now();
+
+      if (isCorrect && !record.isCorrect) {
+        record.isCorrect = true;
+        record.correctAttemptNumber = record.attempts;
+        record.score = Math.max(0, 100 - (record.attempts - 1) * 20);
+      }
+
+      await record.save();
+    }
+
     res.status(200).json({
       subTopicId: subTopic._id,
       selectedLetterId,
@@ -214,8 +234,8 @@ export const answerSubTopic = async (req, res) => {
       userLanguage: userLang,
       isCorrect,
       message: isCorrect
-        ? " Correct!"
-        : ` Incorrect. Correct letter is "${correctLetter[userLang] || correctLetter.en}".`
+        ? "Correct!"
+        : `Incorrect. Correct letter is "${correctLetter[userLang] || correctLetter.en}".`
     });
 
   } catch (error) {

@@ -31,7 +31,7 @@ const subTopicAtoZSchema = new mongoose.Schema(
     fullWord: multilingualField,
     imageUrl: { type: String },
     hint: multilingualField,
-    letters: [letterSchema] // ✅ Letters now valid
+    letters: [letterSchema] 
   },
   { timestamps: true }
 );
