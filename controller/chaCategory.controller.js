@@ -140,16 +140,35 @@ export const deleteCategory = async (req, res) => {
 // Chat within a category
 export const categoryChat = async (req, res) => {
   try {
-    const { category, message } = req.body;
-    if (!category || !message) {
-      return res.status(400).json({ error: "Category and message are required" });
+    const { categoryId, message } = req.body;
+
+    if (!categoryId || !message) {
+      return res.status(400).json({
+        error: "Category ID and message are required",
+      });
     }
 
-    const { reply, correctedInput } = await getCategoryChatResponse(category, message, req.user._id);
+    // Fetch category by ID
+    const category = await ChatCategory.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        error: "Category not found",
+      });
+    }
 
+    // Extract the actual category name or title depending on your schema
+    const categoryName = category.name || category.title || category.categoryName;
+
+    const { reply, correctedInput } = await getCategoryChatResponse(
+      categoryName, 
+      message, 
+      req.user._id
+    );
+
+    // Save chat record
     const chatRecord = new ChatHistory({
       user: req.user._id,
-      category,
+      category: categoryId,
       userMessage: message,
       botReply: reply,
       correctedInput,
@@ -157,11 +176,16 @@ export const categoryChat = async (req, res) => {
 
     await chatRecord.save();
 
-    res.status(200).json({ reply, correctedInput });
+    res.status(200).json({
+      reply,
+      correctedInput,
+    });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Get chat history for a user (optionally by category)
 export const getChatHistory = async (req, res) => {
