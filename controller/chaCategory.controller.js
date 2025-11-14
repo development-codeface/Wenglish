@@ -190,12 +190,45 @@ export const categoryChat = async (req, res) => {
 // Get chat history for a user (optionally by category)
 export const getChatHistory = async (req, res) => {
   try {
-    const filter = { user: req.user._id };
+    const userId = req.user._id;
+
+    const filter = { user: userId };
+
     if (req.query.category) {
       filter.category = req.query.category;
     }
 
-    const history = await ChatHistory.find(filter).sort({ createdAt: -1 });
+    const history = await ChatHistory.aggregate([
+      { $match: filter },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$category",
+          chats: { $push: "$$ROOT" }
+        }
+      },
+      { $project: { category: "$_id", _id: 0, chats: 1 } }
+    ]);
+
+    res.status(200).json(history);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getChatHistoryById = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!req.query.category) {
+      return res.status(400).json({ message: "categoryId is required" });
+    }
+
+    const history = await ChatHistory.find({
+      user: userId,
+      category: req.query.category
+    }).sort({ createdAt: -1 });
+
     res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });
