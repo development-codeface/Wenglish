@@ -8,6 +8,7 @@ import {
   categoryChat,
   getChatHistory,
   getAllCategoriesAllLang,
+  getChatHistoryById,
 } from '../controller/chaCategory.controller.js';
 import { adminMiddleware, authMiddleware } from '../middlewares/auth.middleware.js';
 import { uploadImages } from '../middlewares/upload.Instance.js';
@@ -22,6 +23,7 @@ router.get('/:id', authMiddleware, getCategoryById);
 router.put('/:id', authMiddleware, adminMiddleware,uploadImages.single('image'), updateCategory);
 router.delete('/:id', authMiddleware, adminMiddleware, deleteCategory);
 router.post('/category-chat', authMiddleware, categoryChat);
+router.get('/chat-history', authMiddleware, getChatHistoryById);
 
 
 export default router;

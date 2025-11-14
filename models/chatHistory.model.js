@@ -10,6 +10,9 @@ const ChatHistorySchema = new mongoose.Schema({
     type: String,  
     required: true,
   },
+  categoryName:{
+    type: String,
+  },
   userMessage: {
     type: String,
     required: true,
