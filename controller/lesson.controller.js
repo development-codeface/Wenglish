@@ -5,8 +5,7 @@ import UserProgress from "../models/userProgress.model.js";
 import User from "../models/user.model.js";
 import { initializeUserProgress } from "./progress.controller.js";
 import fs from "fs";
-import path from "path";
-
+import Performance from "../models/perfomance.model.js";
 // Helpers
 const parseIfJson = (value) => {
   if (typeof value === "string") {
@@ -193,13 +192,31 @@ export const answerLessonQuestion = async (req, res) => {
     const lesson = await Lesson.findById(lessonId);
     if (!lesson) return res.status(404).json({ message: "Lesson not found" });
 
-    const correctOption = lesson.options.find(o => o.en === lesson.correctAnswer.en);
+    const correctOption = lesson.options.find(
+      (o) => o.en === lesson.correctAnswer.en
+    );
 
     if (!correctOption)
-      return res.status(500).json({ message: "Correct answer not found in options" });
+      return res.status(500).json({ message: "Correct answer not found" });
 
-    const isCorrect = String(correctOption.optionId) === String(optionId);
+    const isCorrect =
+      String(correctOption.optionId) === String(optionId);
 
+    // 👉 Save Lesson Performance
+    await Performance.create({
+      user: userId,
+      moduleType: "lesson",
+      moduleId: lessonId,
+      score: isCorrect ? 1 : 0,
+      total: 1,
+      accuracy: isCorrect ? 100 : 0,
+      userAnswer: { optionId },
+      correctAnswer: { optionId: correctOption.optionId },
+      isCorrect,
+      timeTaken: req.body.timeTaken || 0
+    });
+
+    // ✨ Continue your progress logic
     if (!isCorrect)
       return res.json({ correct: false, message: "Wrong answer" });
 
@@ -219,8 +236,8 @@ export const answerLessonQuestion = async (req, res) => {
     }
 
     await progress.save();
-    return res.json({ correct: true, message: "Correct!" });
 
+    return res.json({ correct: true, message: "Correct!" });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

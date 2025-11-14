@@ -1,7 +1,6 @@
 import SubTopicAtoZ from "../models/subtopicAtoZ.model.js";
 import Topic from "../models/topic.model.js";
-import UserPerformance from "../models/perfomance.model.js";
-
+import Performance from "../models/perfomance.model.js";
 // Create a new subtopic
 export const createSubTopic = async (req, res) => {
   try {
@@ -196,36 +195,30 @@ export const answerSubTopic = async (req, res) => {
 
     const correctText = subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en;
     const correctLetter = subTopic.letters.find(
-      (l) => (l[userLang] || l.en) === correctText
+      l => (l[userLang] || l.en) === correctText
     );
 
     if (!correctLetter) {
-      return res.status(400).json({ message: "Correct letter not found in letters array" });
+      return res.status(400).json({ message: "Correct letter not found" });
     }
 
     const isCorrect = selectedLetterId === correctLetter._id.toString();
 
-    // Track performance
-    if (userId) {
-      let record = await UserPerformance.findOne({ userId, subTopicId: id });
+    // === Universal Performance Tracking ===
+    await Performance.create({
+      user: userId,
+      moduleType: "atoz",
+      moduleId: id,
+      score: isCorrect ? 1 : 0,
+      total: 1,
+      accuracy: isCorrect ? 100 : 0,
+      userAnswer: { selectedLetterId },
+      correctAnswer: { correctLetterId: correctLetter._id },
+      isCorrect,
+      timeTaken: req.body.timeTaken || 0
+    });
 
-      if (!record) {
-        record = new UserPerformance({ userId, subTopicId: id });
-      }
-
-      record.attempts += 1;
-      record.lastAttemptedAt = Date.now();
-
-      if (isCorrect && !record.isCorrect) {
-        record.isCorrect = true;
-        record.correctAttemptNumber = record.attempts;
-        record.score = Math.max(0, 100 - (record.attempts - 1) * 20);
-      }
-
-      await record.save();
-    }
-
-    res.status(200).json({
+    return res.status(200).json({
       subTopicId: subTopic._id,
       selectedLetterId,
       correctLetterId: correctLetter._id,
@@ -242,4 +235,6 @@ export const answerSubTopic = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
 

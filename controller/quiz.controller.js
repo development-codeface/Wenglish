@@ -1,5 +1,6 @@
 import Quiz from "../models/quiz.model.js";
 import User from "../models/user.model.js";
+import Performance from "../models/perfomance.model.js";
 
 // Create quiz (multilingual + optionId handling)
 export const createQuiz = async (req, res) => {
@@ -174,19 +175,89 @@ export const deleteQuiz = async (req, res) => {
 export const submitAnswer = async (req, res) => {
   try {
     const { quizId, optionId } = req.body;
+    console.log(optionId);
+    
+    const userId = req.user.id;
+    const userLang = req.user?.languagePreference || "en";
 
     const quiz = await Quiz.findById(quizId);
     if (!quiz)
-      return res.status(404).json({ status: false, message: "Quiz not found" });
+      return res.status(404).json({
+        status: false,
+        message: "Quiz not found"
+      });
 
-    const isCorrect = String(quiz.correctAnswer.optionId) === String(optionId);
+    // --- Find correct option (matching optionId stored inside correctAnswer) ---
+  const correctOption = quiz.options.find(
+  opt => opt[userLang] === quiz.correctAnswer[userLang]
+);
 
-    res.status(200).json({
-      status: true,
-      correct: isCorrect,
-      message: isCorrect ? "Correct answer!" : "Wrong answer. Try again.",
+
+    if (!correctOption) {
+      return res.status(400).json({
+        status: false,
+        message: "Correct answer optionId does not match any option in quiz. Data invalid."
+      });
+    }
+
+    // --- Find selected option from options array ---
+    const selectedOption = quiz.options.find(
+      opt => String(opt.optionId) === String(optionId)
+    );
+
+    if (!selectedOption) {
+      return res.status(400).json({
+        status: false,
+        message: "Selected optionId does not exist for this quiz."
+      });
+    }
+
+    const isCorrect = String(optionId) === String(correctOption.optionId);
+
+    // === UNIVERSAL PERFORMANCE TRACKING (same structure as A–Z) ===
+    await Performance.create({
+      user: userId,
+      moduleType: "quiz",
+      moduleId: quizId,
+
+      score: isCorrect ? 1 : 0,
+      total: 1,
+      accuracy: isCorrect ? 100 : 0,
+
+      userAnswer: {
+        optionId,
+        value: selectedOption[userLang] || selectedOption.en
+      },
+
+      correctAnswer: {
+        optionId: correctOption.optionId,
+        value: correctOption[userLang] || correctOption.en
+      },
+
+      isCorrect,
+      timeTaken: req.body.timeTaken || 0
     });
+
+    // === RESPONSE (same as A–Z style) ===
+    return res.status(200).json({
+      quizId,
+      selectedOptionId: optionId,
+      selectedValue: selectedOption[userLang] || selectedOption.en,
+
+      correctOptionId: correctOption.optionId,
+      correctValue: correctOption[userLang] || correctOption.en,
+
+      isCorrect,
+      userLanguage: userLang,
+
+      message: isCorrect
+        ? "Correct!"
+        : `Incorrect. Correct answer is "${correctOption[userLang] || correctOption.en}".`
+    });
+
   } catch (error) {
     res.status(500).json({ status: false, message: error.message });
   }
 };
+
+

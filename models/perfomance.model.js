@@ -1,21 +1,55 @@
 import mongoose from "mongoose";
 
-const userPerformanceSchema = new mongoose.Schema(
+const performanceSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    subTopicId: { type: mongoose.Schema.Types.ObjectId, ref: "SubTopicAtoZ", required: true },
-    attempts: { type: Number, default: 0 },
-    correctAttemptNumber: { type: Number, default: null },
-    isCorrect: { type: Boolean, default: false },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    // lesson, quiz, atoz, grammar
+    moduleType: {
+      type: String,
+      enum: ["lesson", "quiz", "atoz", "grammar"],
+      required: true,
+    },
+
+    // ID of the specific lesson/quiz/subtopic
+    moduleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+
+    // For multiple attempts (A-Z needs this)
+    attempts: { type: Number, default: 1 },
+
+    // Basic scoring
     score: { type: Number, default: 0 },
-    lastAttemptedAt: { type: Date, default: Date.now },
+    total: { type: Number, default: 1 },
+    accuracy: { type: Number, default: 0 }, // percentage
+
+    // Raw answer info
+    userAnswer: { type: mongoose.Schema.Types.Mixed },
+    correctAnswer: { type: mongoose.Schema.Types.Mixed },
+
+    // Correct or wrong
+    isCorrect: { type: Boolean, default: false },
+
+    // To track improvement
+    timeTaken: { type: Number, default: 0 },
+
+    completedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
 
-userPerformanceSchema.virtual("efficiency").get(function () {
+
+performanceSchema.virtual("efficiency").get(function () {
   if (!this.isCorrect) return 0;
-  return Math.max(0, 100 - (this.correctAttemptNumber - 1) * 20);
+
+  
+  return Math.max(0, 100 - (this.attempts - 1) * 20);
 });
 
-export default mongoose.model("UserPerformance", userPerformanceSchema);
+export default mongoose.model("Performance", performanceSchema);
