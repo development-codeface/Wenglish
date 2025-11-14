@@ -6,6 +6,10 @@ export const createSubscriptionPlan = async (req, res) => {
   try {
     if (typeof req.body.title === "string") req.body.title = JSON.parse(req.body.title);
     if (typeof req.body.description === "string") req.body.description = JSON.parse(req.body.description);
+    if (!req.body.discount) {
+  req.body.discount = undefined;
+}
+
 
     // Handle uploaded image
     if (req.file) {
@@ -55,25 +59,6 @@ export const getAllPlans = async (req, res) => {
         actualPrice: plan.price,
         discountPercentage,
         discountPrice,
-
-        // 🏷 Discount info (optional)
-        discount: discountActive
-          ? {
-              _id: plan.discount._id,
-              title: plan.discount.title[userLang] || plan.discount.title.en,
-              description:
-                plan.discount.description?.[userLang] ||
-                plan.discount.description?.en ||
-                "",
-              discountPercentage: plan.discount.discountPercentage,
-              image: plan.discount.image || "",
-              days: plan.discount.days,
-      actualPrice: plan.discount.actualPrice,
-      discountPrice: plan.discount.discountPrice,
-            duration: plan.discount.duration,
-
-            }
-          : null,
       };
     });
 
