@@ -33,7 +33,7 @@ export const completePaymentAndSubscribe = async (req, res) => {
       });
     }
 
-    // 2. Store payment
+    // 2. Store payment record
     const payment = await Payment.create({
       name,
       phone,
@@ -45,6 +45,7 @@ export const completePaymentAndSubscribe = async (req, res) => {
       user: userId
     });
 
+    // If payment failed → stop
     if (status !== "success") {
       return res.status(400).json({
         status: false,
@@ -53,7 +54,7 @@ export const completePaymentAndSubscribe = async (req, res) => {
       });
     }
 
-    // 3. Calculate final price
+    // 3. Calculate final payable price
     let finalPrice = plan.price;
     const planName = plan.title.en;
 
@@ -63,11 +64,10 @@ export const completePaymentAndSubscribe = async (req, res) => {
     }
 
     // 4. Calculate subscription dates
-    const startDate = new Date();
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + plan.days);
+    const now = new Date();
+    let startDate = now;
+    let endDate;
 
-    // 5. Activate subscription
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -76,6 +76,22 @@ export const completePaymentAndSubscribe = async (req, res) => {
       });
     }
 
+    // If user already has an active subscription → extend it
+    if (
+      user.subscription?.isActive &&
+      user.subscription.endDate &&
+      user.subscription.endDate > now
+    ) {
+      startDate = user.subscription.startDate; // keep original start date
+      endDate = new Date(user.subscription.endDate);
+      endDate.setDate(endDate.getDate() + plan.days); // extend
+    } else {
+      // New subscription or expired subscription
+      endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + plan.days);
+    }
+
+    // 5. Activate subscription
     user.subscription = {
       plan: plan._id,
       planName,
@@ -108,6 +124,7 @@ export const completePaymentAndSubscribe = async (req, res) => {
     });
   }
 };
+
 
 
 export const updateUser = async (req, res) => {
