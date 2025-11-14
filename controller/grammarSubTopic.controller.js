@@ -1,6 +1,7 @@
 import GrammarSubtopic from "../models/grammerSubTopic.model.js";
 import Topic from "../models/topic.model.js";
 import { getGrammarTutorResponse } from "../services/llmService.js";
+import GrammarChatHistory from "../models/grammerChatHistory.model.js";
 
 export const createGrammarSubtopic = async (req, res) => {
   try {
@@ -120,20 +121,70 @@ export const updateGrammarSubtopic = async (req, res) => {
 export const grammarChat = async (req, res) => {
   try {
     const { subtopicId, message } = req.body;
-    const userId = req.user?.id 
+    const userId = req.user?.id;
 
     if (!subtopicId || !message) {
       return res.status(400).json({ message: "subtopicId and message are required" });
     }
 
-    const response = await getGrammarTutorResponse(subtopicId, message, userId);
+    // Get subtopic for storing readable name
+    const subtopic = await GrammarSubtopic.findById(subtopicId);
+    if (!subtopic) {
+      return res.status(404).json({ message: "Subtopic not found" });
+    }
 
-    return res.status(200).json(response);
+    const subtopicName = subtopic.title?.en || "Grammar";
+
+    const { reply, correctedInput } = await getGrammarTutorResponse(
+      subtopicId,
+      message,
+      userId
+    );
+
+    // Save chat into GrammarChatHistory
+    await GrammarChatHistory.create({
+      user: userId,
+      subtopicId,
+      subtopicName,
+      userMessage: message,
+      botReply: reply,
+      correctedInput: correctedInput || null,
+    });
+
+    res.status(200).json({ reply, correctedInput });
 
   } catch (error) {
     console.error("Grammar Chat Error:", error);
     res.status(500).json({ message: "Something went wrong" });
   }
 };
+
+export const getGrammarChatHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { subtopicId } = req.query;
+
+    const filter = { user: userId };
+
+    // If subtopicId is given, filter by it
+    if (subtopicId) {
+      filter.subtopicId = subtopicId;
+    }
+
+    const history = await GrammarChatHistory
+      .find(filter)
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: true,
+      count: history.length,
+      history
+    });
+
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 
 
