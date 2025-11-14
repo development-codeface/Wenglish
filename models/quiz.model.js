@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 
 const localizedStringSchema = new mongoose.Schema({
-  en: { type: String, required: true },
-  ml: { type: String, required: true },
-  hi: { type: String, required: true },
-  ta: { type: String, required: true },
-  te: { type: String, required: true },
-  kn: { type: String, required: true },
+  en: { type: String, },
+  ml: { type: String, },
+  hi: { type: String, },
+  ta: { type: String, },
+  te: { type: String, },
+  kn: { type: String, },
 });
 
 const optionSchema = new mongoose.Schema({
@@ -14,12 +14,12 @@ const optionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     default: () => new mongoose.Types.ObjectId(),
   },
-  en: { type: String, required: true },
-  ml: { type: String, required: true },
-  hi: { type: String, required: true },
-  ta: { type: String, required: true },
-  te: { type: String, required: true },
-  kn: { type: String, required: true },
+  en: { type: String, },
+  ml: { type: String, },
+  hi: { type: String, },
+  ta: { type: String, },
+  te: { type: String, },
+  kn: { type: String, },
 });
 
 const quizSchema = new mongoose.Schema(
@@ -37,13 +37,10 @@ const quizSchema = new mongoose.Schema(
       required: true,
     },
     correctAnswer: {
-      optionId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-      },
       type: localizedStringSchema,
       required: true,
     },
+    imageUrl: { type: String, default: "" },
   },
   { timestamps: true }
 );
