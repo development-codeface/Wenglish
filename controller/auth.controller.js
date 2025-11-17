@@ -11,13 +11,19 @@ import { on } from "events";
 
 export const registerUser = async (req, res) => {
   try {
-    let { name, email, password, role, phone, languagePreference, whyLearn } = req.body;
+    let { name, email, password, role, phone, languagePreference, whyLearn, nativeLanguage } = req.body;
 
     // Clean up languagePreference
     if (typeof languagePreference === "string") {
       languagePreference = languagePreference.trim();
       if (languagePreference === "" || languagePreference === "null") {
         languagePreference = null;
+      }
+    }
+    if (typeof nativeLanguage === "string") {
+      nativeLanguage = nativeLanguage.trim();
+      if (nativeLanguage === "" || nativeLanguage === "null") {
+        nativeLanguage = null;
       }
     }
 
@@ -39,6 +45,7 @@ export const registerUser = async (req, res) => {
       profileImage,
       languagePreference,
       whyLearn,
+      nativeLanguage
     });
 
     // Generate and send OTP

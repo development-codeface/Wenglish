@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema(
     },
     lastActive: { type: Date, default: null },
     profileImage: { type: String, default: "" },
+    nativeLanguage: {
+      type: String,
+      enum: ["en", "ml", "te", "hi", "ta", "kn"],
+      default: "en",
+    },
     languagePreference: {
       type: String,
       enum: ["en", "ml", "te", "hi", "ta", "kn"],
