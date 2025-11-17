@@ -31,7 +31,7 @@ export const createSubscriptionPlan = async (req, res) => {
 // Get all plans (localized for user language)
 export const getAllPlans = async (req, res) => {
   try {
-    const userLang = req.user?.languagePreference || "en";
+    const userLang = req.user?.nativeLanguage || "en";
 
     const plans = await SubscriptionPlan.find()
       .populate("discount")
@@ -106,7 +106,7 @@ export const getAllPlansAllLang = async (req, res) => {
 export const getPlanById = async (req, res) => {
   try {
     const user = await User.findById(req.user?._id);
-    const userLang = user?.languagePreference || "en";
+    const userLang = user?.nativeLanguage || "en";
 
     const plan = await SubscriptionPlan.findById(req.params.id)
       .populate("discount")

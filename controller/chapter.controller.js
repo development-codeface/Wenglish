@@ -63,7 +63,7 @@ export const getAllChapters = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findById(userId);
-    const userLang = user.languagePreference || "en";
+    const userLang = user.nativeLanguage || "en";
 
     const chapters = await Chapter.find().sort({ order: 1 });
 
@@ -90,7 +90,7 @@ export const getAllChaptersWithLessons = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findById(userId);
-    const userLang = user.languagePreference || "en";
+    const userLang = user.nativeLanguage || "en";
 
     const progress = await UserProgress.findOne({ userId });
 

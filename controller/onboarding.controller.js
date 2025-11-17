@@ -1,93 +1,128 @@
 import Question from "../models/onboardingQstns.model.js";
 import UserAnswer from "../models/onboardingUserAnswer.model.js";
 
+// Helper for parsing multilingual fields
+const parseMultilingual = (value) => {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return { en: value };
+    }
+  }
+  return value;
+};
+
 // Create Question
 export const addQuestion = async (req, res) => {
   try {
-    let { questionText, icon } = req.body;
-    let { options } = req.body;
+    // Multilingual fields
+    let questionText = parseMultilingual(req.body.questionText);
+    let options = req.body.options;
 
-    // Handle form-data formats
+    // Handle form-data options
     if (typeof options === "string") {
       try {
-        const parsed = JSON.parse(options);
-        if (Array.isArray(parsed)) {
-          options = parsed;
-        } else {
-          options = [options];
-        }
+        options = JSON.parse(options);
       } catch {
-        // Treat as simple string if not JSON
         options = [options];
       }
     }
 
-    // Convert plain values or arrays to structured options
     const formattedOptions = Array.isArray(options)
       ? options.map((opt) => {
           if (typeof opt === "string") {
-            // Accept comma-separated "text,icon" format for form-data simplicity
             const [text, optIcon] = opt.split(",").map((s) => s.trim());
-            return { text, icon: optIcon || "" };
+            return {
+              text: parseMultilingual(text),
+              icon: optIcon || "",
+            };
           }
-          return opt; // if already an object
+          return {
+            text: parseMultilingual(opt.text),
+            icon: opt.icon || "",
+          };
         })
       : [];
 
     if (!questionText || formattedOptions.length < 2) {
-      return res
-        .status(400)
-        .json({ message: "Please provide question text and at least two options." });
+      return res.status(400).json({
+        message: "Question text and at least two options required.",
+      });
     }
 
-    const newQuestion = await Question.create({
+    const newQ = await Question.create({
       questionText,
-      icon,
+      icon: req.body.icon || "",
       options: formattedOptions,
     });
 
     res.status(201).json({
       message: "Question added successfully",
-      question: newQuestion,
+      question: newQ,
     });
   } catch (error) {
     console.error("Error adding question:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Get All Questions
+// Get All Questions (localized)
 export const getAllQuestions = async (req, res) => {
   try {
+    const userLang = req.user?.nativeLanguage || "en";
     const questions = await Question.find().sort({ createdAt: -1 });
+
+    const localized = questions.map((q) => ({
+      _id: q._id,
+      icon: q.icon,
+      questionText: q.questionText[userLang] || q.questionText.en,
+      options: q.options.map((o) => ({
+        _id: o._id,
+        icon: o.icon,
+        text: o.text[userLang] || o.text.en,
+      })),
+    }));
+
     res.status(200).json({
       message: "Questions fetched successfully",
-      count: questions.length,
-      questions,
+      count: localized.length,
+      questions: localized,
     });
   } catch (error) {
     console.error("Error fetching questions:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Get Question by ID
+// Get Question by ID (localized)
 export const getQuestionById = async (req, res) => {
   try {
+    const userLang = req.user?.nativeLanguage || "en";
     const { id } = req.params;
-    const question = await Question.findById(id);
 
-    if (!question) {
+    const q = await Question.findById(id);
+    if (!q) {
       return res.status(404).json({ message: "Question not found" });
     }
 
     res.status(200).json({
       message: "Question fetched successfully",
-      question,
+      question: {
+        _id: q._id,
+        icon: q.icon,
+        questionText: q.questionText[userLang] || q.questionText.en,
+        options: q.options.map((o) => ({
+          _id: o._id,
+          icon: o.icon,
+          text: o.text[userLang] || o.text.en,
+        })),
+      },
     });
   } catch (error) {
-    console.error("Error fetching question by ID:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error fetching question:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -95,17 +130,13 @@ export const getQuestionById = async (req, res) => {
 export const updateQuestion = async (req, res) => {
   try {
     const { id } = req.params;
-    let { questionText, icon } = req.body;
-    let { options } = req.body;
+
+    let questionText = parseMultilingual(req.body.questionText);
+    let options = req.body.options;
 
     if (typeof options === "string") {
       try {
-        const parsed = JSON.parse(options);
-        if (Array.isArray(parsed)) {
-          options = parsed;
-        } else {
-          options = [options];
-        }
+        options = JSON.parse(options);
       } catch {
         options = [options];
       }
@@ -115,77 +146,84 @@ export const updateQuestion = async (req, res) => {
       ? options.map((opt) => {
           if (typeof opt === "string") {
             const [text, optIcon] = opt.split(",").map((s) => s.trim());
-            return { text, icon: optIcon || "" };
+            return {
+              text: parseMultilingual(text),
+              icon: optIcon || "",
+            };
           }
-          return opt;
+          return {
+            text: parseMultilingual(opt.text),
+            icon: opt.icon || "",
+          };
         })
       : [];
 
     if (!questionText || formattedOptions.length < 2) {
-      return res
-        .status(400)
-        .json({ message: "Please provide question text and at least two options." });
+      return res.status(400).json({
+        message: "Question text and two options required.",
+      });
     }
 
-    const updatedQuestion = await Question.findByIdAndUpdate(
+    const updated = await Question.findByIdAndUpdate(
       id,
-      { questionText, icon, options: formattedOptions },
+      {
+        questionText,
+        icon: req.body.icon || "",
+        options: formattedOptions,
+      },
       { new: true, runValidators: true }
     );
 
-    if (!updatedQuestion) {
+    if (!updated) {
       return res.status(404).json({ message: "Question not found" });
     }
 
     res.status(200).json({
       message: "Question updated successfully",
-      question: updatedQuestion,
+      question: updated,
     });
   } catch (error) {
     console.error("Error updating question:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
 // Delete Question
 export const deleteQuestion = async (req, res) => {
   try {
-    const { id } = req.params;
-    const deletedQuestion = await Question.findByIdAndDelete(id);
-
-    if (!deletedQuestion) {
+    const deleted = await Question.findByIdAndDelete(req.params.id);
+    if (!deleted) {
       return res.status(404).json({ message: "Question not found" });
     }
 
     res.status(200).json({
       message: "Question deleted successfully",
-      deletedQuestion,
+      deleted,
     });
   } catch (error) {
     console.error("Error deleting question:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
+// Submit Answers
 export const submitAnswer = async (req, res) => {
   try {
     const userId = req.user.id;
     const { questionId, answers } = req.body;
 
     if (!questionId || !Array.isArray(answers) || answers.length === 0) {
-      return res.status(400).json({ message: "Question ID and answers are required" });
+      return res.status(400).json({ message: "Question ID and answers required" });
     }
 
-    const question = await Question.findById(questionId);
-    if (!question) {
-      return res.status(404).json({ message: "Question not found" });
-    }
+    const q = await Question.findById(questionId);
+    if (!q) return res.status(404).json({ message: "Question not found" });
 
-    const validOptionIds = question.options.map(opt => opt._id.toString());
-    const invalidSelections = answers.filter(a => !validOptionIds.includes(a));
+    const validOptionIds = q.options.map((o) => o._id.toString());
+    const invalid = answers.filter((a) => !validOptionIds.includes(a));
 
-    if (invalidSelections.length > 0) {
-      return res.status(400).json({ message: "One or more selected answers are invalid" });
+    if (invalid.length > 0) {
+      return res.status(400).json({ message: "Invalid answer selection" });
     }
 
     const saved = await UserAnswer.findOneAndUpdate(
@@ -199,31 +237,72 @@ export const submitAnswer = async (req, res) => {
       message: "Answers saved successfully",
       answer: saved,
     });
-
   } catch (error) {
     console.error("Error saving answers:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-
+// Get User Answers (localized)
 export const getUserAnswers = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userLang = req.user?.languagePreference || "en";
 
-    const answers = await UserAnswer.find({ userId })
-      .populate("questionId", "questionText icon");
+    const answers = await UserAnswer.find({ userId: req.user.id }).populate(
+      "questionId"
+    );
+
+    const formatted = answers.map((a) => ({
+      _id: a._id,
+      questionId: a.questionId?._id,
+      questionText:
+        a.questionId?.questionText[userLang] ||
+        a.questionId?.questionText.en,
+      icon: a.questionId?.icon,
+      answers: a.answers,
+    }));
 
     res.status(200).json({
       status: true,
       message: "User answers fetched successfully",
-      answers,
+      answers: formatted,
     });
-
   } catch (error) {
     console.error("Error fetching answers:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
+export const getAllQuestionsAllLanguages = async (req, res) => {
+  try {
+    const questions = await Question.find().sort({ createdAt: -1 });
+
+    const formatted = questions.map((q) => ({
+      _id: q._id,
+      icon: q.icon || "",
+      questionText: q.questionText || {},      
+      options: q.options.map((o) => ({
+        _id: o._id,
+        icon: o.icon || "",
+        text: o.text || {}                     
+      })),
+      createdAt: q.createdAt,
+      updatedAt: q.updatedAt
+    }));
+
+    res.status(200).json({
+      status: true,
+      message: "Questions returned with all languages",
+      count: formatted.length,
+      questions: formatted,
+    });
+
+  } catch (error) {
+    console.error("Error fetching all-lang questions:", error);
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
+  }
+};
 

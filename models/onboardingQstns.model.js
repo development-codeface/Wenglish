@@ -1,24 +1,25 @@
 import mongoose from "mongoose";
 
+const multilingualField = {
+  en: { type: String, default: "" },
+  hi: { type: String, default: "" },
+  ta: { type: String, default: "" },
+  te: { type: String, default: "" },
+  kn: { type: String, default: "" },
+  ml: { type: String, default: "" }
+};
+
 const optionSchema = new mongoose.Schema({
-  text: {
-    type: String,
-    required: [true, "Option text is required"],
-    trim: true,
-  },
+  text: multilingualField,        
   icon: {
-    type: String, 
+    type: String,
     trim: true,
   },
 });
 
 const questionSchema = new mongoose.Schema(
   {
-    questionText: {
-      type: String,
-      required: [true, "Question text is required"],
-      trim: true,
-    },
+    questionText: multilingualField,    
     icon: {
       type: String,
       trim: true,

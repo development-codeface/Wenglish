@@ -36,7 +36,7 @@ export const createCategory = async (req, res) => {
 // Get all chat categories — localized for user's preferred language
 export const getAllCategories = async (req, res) => {
   try {
-    const userLang = req.user?.languagePreference || "en";
+    const userLang = req.user?.nativeLanguage || "en";
     const categories = await ChatCategory.find();
 
     const localizedCategories = categories.map((cat) => ({
@@ -76,7 +76,7 @@ export const getCategoryById = async (req, res) => {
     const category = await ChatCategory.findById(req.params.id);
     if (!category) return res.status(404).json({ error: "Category not found" });
 
-    const userLang = req.user?.languagePreference || "en";
+    const userLang = req.user?.nativeLanguage || "en";
 
     const localizedCategory = {
       _id: category._id,

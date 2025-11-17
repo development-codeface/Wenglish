@@ -51,7 +51,7 @@ export const createDiscount = async (req, res) => {
 // Get all active discounts (with optional language filter)
 export const getDiscounts = async (req, res) => {
   try {
-    const lang = req.user?.languagePreference || "en";
+    const lang = req.user?.nativeLanguage || "en";
     const discounts = await Discount.find({ isActive: true });
 
     const localizedDiscounts = discounts.map((d) => ({
@@ -70,7 +70,7 @@ export const getDiscounts = async (req, res) => {
 export const getDiscountById = async (req, res) => {
   try {
     const { id } = req.params;
-    const lang = req.user?.languagePreference || "en";
+    const lang = req.user?.nativeLanguage || "en";
 
     const discount = await Discount.findById(id);
     if (!discount) return res.status(404).json({ message: "Discount not found" });

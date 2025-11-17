@@ -7,6 +7,7 @@ import {
   deleteQuestion,
   getUserAnswers,
   submitAnswer,
+  getAllQuestionsAllLanguages,
 } from "../controller/onboarding.controller.js";
 import { adminMiddleware, authMiddleware } from "../middlewares/auth.middleware.js";
 import { uploadImages } from "../middlewares/upload.Instance.js";
@@ -15,10 +16,11 @@ const router = express.Router();
 
 router.post("/",authMiddleware,adminMiddleware,uploadImages.none(), addQuestion);        
 router.get("/", getAllQuestions);     
+router.get("/all", getAllQuestionsAllLanguages); 
 router.get("/:id", getQuestionById); 
 router.put("/:id",authMiddleware,adminMiddleware, updateQuestion);  
 router.delete("/:id",authMiddleware,adminMiddleware, deleteQuestion);
 router.get("/user/answers",authMiddleware, getUserAnswers);
-router.post("/user/submit-answer",authMiddleware, submitAnswer); 
+router.post("/user/submit-answer",authMiddleware, submitAnswer);
 
 export default router;

@@ -39,7 +39,7 @@ export const createTopic = async (req, res) => {
 // Get all topics (localized)
 export const getAllTopics = async (req, res) => {
   try {
-    const userLang = req.user?.languagePreference || "en";
+    const userLang = req.user?.nativeLanguage || "en";
     const topics = await Topic.find().sort({ createdAt: -1 });
 
     const localizedTopics = topics.map((topic) => ({
@@ -88,7 +88,7 @@ export const getTopicById = async (req, res) => {
     const topic = await Topic.findById(req.params.id);
     if (!topic) return res.status(404).json({ message: "Topic not found" });
 
-    const userLang = req.user?.languagePreference || "en";
+    const userLang = req.user?.nativeLanguage || "en";
 
     const localizedTopic = {
       _id: topic._id,
