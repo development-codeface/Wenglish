@@ -165,6 +165,48 @@ export const updateUser = async (req, res) => {
   }
 };
 
+export const updateNativeLanguage = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { nativeLanguage } = req.body;
+
+    if (!nativeLanguage || typeof nativeLanguage !== "string") {
+      return res.status(400).json({
+        status: false,
+        message: "nativeLanguage is required and must be a string",
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { nativeLanguage, lastActive: new Date() } },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "Native language updated successfully",
+      user: updatedUser,
+    });
+
+  } catch (error) {
+    console.error("Error updating native language:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+
 
 export const deleteUser = async (req, res) => {
   try {
