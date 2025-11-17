@@ -130,7 +130,7 @@ export const completePaymentAndSubscribe = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { name, phone, languagePreference, whyLearn } = req.body;
+    const { name, phone, languagePreference, whyLearn , nativeLanguage} = req.body;
 
     let profileImage;
     if (req.file) {
@@ -147,9 +147,10 @@ export const updateUser = async (req, res) => {
           languagePreference,
           whyLearn, 
           lastActive: new Date(),
+          nativeLanguage,
         },
       },
-      { new: true, runValidators: true, omitUndefined: true } // omitUndefined ensures undefined fields are not overwritten
+      { new: true, runValidators: true, omitUndefined: true } 
     ).select("-password");
 
     if (!updatedUser) return res.status(404).json({ message: "User not found" });
@@ -254,9 +255,8 @@ export const getAllUsersWithOnboardingAnswers = async (req, res) => {
     // Fetch all users
     const users = await User.find().select("-password").lean();
 
-    // Fetch all answers grouped by user
     const answers = await UserAnswer.find()
-      .populate("questionId", "questionText options") // bring full question & options
+      .populate("questionId", "questionText options") 
       .lean();
 
     // Group answers by userId
