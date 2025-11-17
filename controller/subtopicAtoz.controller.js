@@ -48,13 +48,14 @@ export const getAllSubTopics = async (req, res) => {
       .sort({ createdAt: -1 });
 
     const userLang = req.user?.languagePreference || "en";
+    const nativeLang = req.user?.nativeLanguage || "en";
 
     const localizedSubTopics = subTopics.map((s) => ({
       _id: s._id,
       question: s.question?.[userLang] || s.question?.en,
       correctAnswers: s.correctAnswers?.[userLang] || s.correctAnswers?.en,
       fullWord: s.fullWord?.[userLang] || s.fullWord?.en,
-      hint: s.hint?.[userLang] || s.hint?.en || "",
+      hint: s.hint?.[nativeLang] || s.hint?.en || "",
       letters: s.letters?.map((l) => ({
         _id: l._id,
         value: l[userLang] || l.en
