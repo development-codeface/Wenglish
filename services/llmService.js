@@ -145,62 +145,63 @@ Keep it simple and suitable for kids.
 export const getGrammarTutorResponse = async (subtopicId, userInput, userId) => {
   try {
     const user = await User.findById(userId);
-    const language = user?.languagePreference || "en";
+
+    const learningLang = user?.languagePreference || "en";   
+    const nativeLang = user?.nativeLanguage || "en";          
 
     const subtopic = await GrammarSubtopic.findById(subtopicId);
     if (!subtopic) {
       return { reply: "Grammar topic not found.", correctedInput: null };
     }
 
-    const topicTitle = subtopic.title?.[language] || subtopic.title?.en;
+    const topicTitle =
+      subtopic.title?.[learningLang] ||
+      subtopic.title?.en;
 
-    // 1) Fetch last 10 grammar chat messages for this user + subtopic
+    // fetch last 3 messages only (super fast)
     const previousChats = await GrammarChatHistory.find({
       user: userId,
       subtopicId
     })
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(3);
 
-    // Convert previous chats into LLM dialogue format  
     const historyMessages = previousChats
-      .reverse() // chronological
+      .reverse()
       .map(chat => [
-        new HumanMessage(chat.userMessage),
-        new AIMessage(chat.botReply)
+        { role: "user", content: chat.userMessage },
+        { role: "assistant", content: chat.botReply }
       ])
       .flat();
 
-    // 2) Human-friendly correction
-    let correctedInput = await correctUserInput(userInput, language);
-    if (correctedInput.includes("✅ Looks good!")) {
-      correctedInput = userInput;
-    }
+    // tiny system message (fastest)
+    const systemMessage = {
+      role: "system",
+      content: `You are a helpful grammar tutor.
+The user is learning English grammar, but you must explain EVERYTHING ONLY in ${nativeLang}.
+Never reply in ${learningLang}. Never mix languages.
+Teach the topic "${topicTitle}" in ${nativeLang}.
 
-    // 3) Tutor instructions
-    const systemMessage = new SystemMessage(
-      `You are a friendly grammar tutor teaching "${topicTitle}".
-Language: ${language}.
-Use:
-1) A short definition (2–4 lines).
-2) 1–2 simple examples.
-3) One follow-up question encouraging practice.
-Avoid emojis.`
-    );
+Use this structure:
+1) Definition (native language only)
+2) 1–2 examples explained in native language
+3) Simple explanation in native language
+4) A short practice question in native language`
+    };
 
-    // 4) Build message stack (memory + new message)
     const messages = [
       systemMessage,
       ...historyMessages,
-      new HumanMessage(correctedInput)
+      { role: "user", content: userInput }
     ];
 
     const response = await model.invoke(messages);
 
     return {
       reply: response.content,
-      correctedInput,
-      language,
+      correctedInput: userInput,
+      language: learningLang,
+      nativeLang,
       topic: topicTitle
     };
   } catch (error) {
@@ -211,6 +212,7 @@ Avoid emojis.`
     };
   }
 };
+
 
 
 
