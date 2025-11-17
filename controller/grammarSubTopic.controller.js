@@ -25,7 +25,7 @@ export const createGrammarSubtopic = async (req, res) => {
 
 export const getGrammarSubtopics = async (req, res) => {
   try {
-    const userLang = req.user?.languagePreference || "en";
+    const userLang = req.user?.nativeLanguage || "en";
     const { topicId } = req.query;
 
     const filter = topicId ? { topicId } : {};

@@ -85,7 +85,8 @@ export const getLessonsByChapter = async (req, res) => {
     const { chapterId } = req.params;
     const userId = req.user.id;
     const user = await User.findById(userId);
-    const lang = user?.languagePreference || "en";
+    const lang = user?.nativeLanguage || "en";
+    const studyLang = user?.languagePreference || "en";
 
     const progress = await UserProgress.findOne({ userId });
     const lessons = await Lesson.find({ chapterId }).sort({ order: 1 });
@@ -102,12 +103,12 @@ export const getLessonsByChapter = async (req, res) => {
 
         options: lesson.options.map((opt) => ({
           optionId: opt.optionId,
-          text: translate(opt, lang)
+          text: translate(opt, studyLang)
         })),
 
         correctAnswer: correctOpt ? {
           optionId: correctOpt.optionId,
-          text: translate(correctOpt, lang)
+          text: translate(correctOpt, studyLang)
         } : null,
 
         videoUrl: lesson.videoUrl,

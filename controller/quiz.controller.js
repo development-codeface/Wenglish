@@ -48,10 +48,11 @@ export const getAllQuizzes = async (req, res) => {
     const quizzes = await Quiz.find();
     const user = await User.findById(req.user.id);
     const lang = user?.languagePreference || "en";
+    const nativeLang = user?.nativeLanguage || "en";
 
     const localized = quizzes.map((q) => ({
       _id: q._id,
-      question: q.question?.[lang] || q.question?.en,
+      question: q.question?.[nativeLang] || q.question?.en,
       options: q.options.map((opt) => ({
         optionId: opt.optionId,
         text: opt?.[lang] || opt?.en,
@@ -94,10 +95,11 @@ export const getQuizById = async (req, res) => {
 
     const user = await User.findById(req.user.id);
     const lang = user?.languagePreference || "en";
+    const nativeLang = user?.nativeLanguage || "en";
 
     const localizedQuiz = {
       _id: quiz._id,
-      question: quiz.question?.[lang] || quiz.question?.en,
+      question: quiz.question?.[nativeLang] || quiz.question?.en,
       options: quiz.options.map((opt) => ({
         optionId: opt.optionId,
         text: opt?.[lang] || opt?.en,
