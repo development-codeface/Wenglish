@@ -20,7 +20,11 @@ const GrammarChatHistorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    botReply: {
+    replyNative: {
+      type: String,
+      required: true,
+    },
+    replyLearning: {
       type: String,
       required: true,
     },
