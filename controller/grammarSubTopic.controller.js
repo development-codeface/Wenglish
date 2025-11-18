@@ -127,37 +127,43 @@ export const grammarChat = async (req, res) => {
       return res.status(400).json({ message: "subtopicId and message are required" });
     }
 
-    // Get subtopic for storing readable name
     const subtopic = await GrammarSubtopic.findById(subtopicId);
     if (!subtopic) {
       return res.status(404).json({ message: "Subtopic not found" });
     }
 
-    const subtopicName = subtopic.title?.en || "Grammar";
+    // FIX: Always extract a fallback name
+    const subtopicName =
+      subtopic.title?.en ||
+      subtopic.title?.[Object.keys(subtopic.title)[0]] ||
+      "Grammar";
 
-    const { reply, correctedInput } = await getGrammarTutorResponse(
-      subtopicId,
-      message,
-      userId
-    );
+    // Get tutor response
+    const { reply, stage, questionNumber, correctedInput } =
+      await getGrammarTutorResponse(subtopicId, message, userId);
 
-    // Save chat into GrammarChatHistory
+    // Save chat
     await GrammarChatHistory.create({
       user: userId,
       subtopicId,
-      subtopicName,
+      subtopicName,       // FIX APPLIED HERE
+      stage,
+      questionNumber,
       userMessage: message,
       botReply: reply,
       correctedInput: correctedInput || null,
     });
 
-    res.status(200).json({ reply, correctedInput });
+    return res.status(200).json({ reply, stage, questionNumber });
 
   } catch (error) {
     console.error("Grammar Chat Error:", error);
-    res.status(500).json({ message: "Something went wrong" });
+    return res.status(500).json({ message: "Something went wrong" });
   }
 };
+
+
+
 
 export const getGrammarChatHistory = async (req, res) => {
   try {

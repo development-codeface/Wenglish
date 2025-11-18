@@ -145,65 +145,115 @@ Keep it simple and suitable for kids.
 export const getGrammarTutorResponse = async (subtopicId, userInput, userId) => {
   try {
     const user = await User.findById(userId);
-
-    const learningLang = user?.languagePreference || "en";   
-    const nativeLang = user?.nativeLanguage || "en";          
+    const nativeLang = user?.nativeLanguage || "en";
+    const learningLang = user?.languagePreference || "en";
 
     const subtopic = await GrammarSubtopic.findById(subtopicId);
     if (!subtopic) {
-      return { reply: "Grammar topic not found.", correctedInput: null };
+      return { reply: "Topic not found.", correctedInput: null };
     }
 
-    const topicTitle =
-      subtopic.title?.[learningLang] ||
-      subtopic.title?.en;
+    const topicTitle = subtopic.title?.[learningLang] || subtopic.title?.en;
 
-    // fetch last 3 messages only (super fast)
-    const previousChats = await GrammarChatHistory.find({
+    // Load LAST history for stage progression
+    const lastMessage = await GrammarChatHistory.findOne({
       user: userId,
       subtopicId
-    })
-      .sort({ createdAt: -1 })
-      .limit(3);
+    }).sort({ createdAt: -1 });
 
-    const historyMessages = previousChats
-      .reverse()
-      .map(chat => [
-        { role: "user", content: chat.userMessage },
-        { role: "assistant", content: chat.botReply }
-      ])
-      .flat();
+    const stage = lastMessage?.stage || "intro";
+    const questionNumber = lastMessage?.questionNumber || 0;
 
-    // tiny system message (fastest)
-    const systemMessage = {
-      role: "system",
-      content: `You are a helpful grammar tutor.
-The user is learning English grammar, but you must explain EVERYTHING ONLY in ${nativeLang}.
-Never reply in ${learningLang}. Never mix languages.
-Teach the topic "${topicTitle}" in ${nativeLang}.
+    // ---- MASTER PROMPT ----
+const systemPrompt = `
+You are a structured grammar tutor.
+Teach the English grammar topic: "${topicTitle}"
+But speak ONLY in the user's native language: ${nativeLang}.
 
-Use this structure:
-1) Definition (native language only)
-2) 1–2 examples explained in native language
-3) Simple explanation in native language
-4) A short practice question in native language`
-    };
+NEVER speak English except inside quotes (" ") when giving example sentences.
+
+-----------------------
+STAGE FLOW LOGIC
+-----------------------
+
+STAGE: intro
+- Give a very simple explanation of the grammar rule **in ${nativeLang}**.
+- Then ask the user: 
+  "Do you understand?" translated fully into ${nativeLang}.
+- Tell the user to reply with the equivalent of "yes" or "no" in ${nativeLang}.
+
+STAGE: understanding-check
+- If the user's message means "no" in ${nativeLang}:  
+    → Re-explain the rule more simply in ${nativeLang}.  
+    → Ask again if they understand (in ${nativeLang}).
+- If the user's message means "yes" in ${nativeLang}:  
+    → Move to stage "examples".
+
+STAGE: examples
+- Give two simple English example sentences inside quotes (" ").
+- Explain each sentence clearly in ${nativeLang}.
+- Then ask the user: 
+  "Are you ready for practice questions?" translated into ${nativeLang}.
+
+STAGE: questions
+- Ask a simple practice question based on questionNumber (1, 2, or 3).
+- After the user's answer:
+    → Give feedback in ${nativeLang}.
+    → Increase questionNumber by 1.
+- After questionNumber reaches 3:
+    → Move to stage "mastered".
+
+STAGE: mastered
+- Congratulate the user in ${nativeLang}.
+- Confirm they have mastered this topic.
+
+
+-----------------------
+REQUIRED OUTPUT FORMAT
+-----------------------
+Always respond ONLY in this JSON format:
+
+{
+  "stage": "<nextStage>",
+  "questionNumber": <nextNumber>,
+  "reply": "<your full message in ${nativeLang}>"
+}
+
+Do NOT include any text outside the JSON.
+Your entire output MUST be valid JSON.
+`;
+console.log(topicTitle);
+
 
     const messages = [
-      systemMessage,
-      ...historyMessages,
+      { role: "system", content: systemPrompt },
+      { role: "assistant", content: lastMessage?.botReply || "" },
       { role: "user", content: userInput }
     ];
+const result = await model.invoke(messages);
 
-    const response = await model.invoke(messages);
+// Extract and repair JSON
+const parsed = fixJSON(result.content);
 
-    return {
-      reply: response.content,
-      correctedInput: userInput,
-      language: learningLang,
-      nativeLang,
-      topic: topicTitle
-    };
+if (!parsed) {
+  console.error("Invalid JSON from model:", result.content);
+  return {
+    reply: "AI format error.",
+    correctedInput: null
+  };
+}
+
+return {
+  reply: parsed.reply,
+  stage: parsed.stage,
+  questionNumber: parsed.questionNumber,
+  correctedInput: userInput,
+  language: learningLang,
+  nativeLang,
+  topic: topicTitle
+};
+
+
   } catch (error) {
     console.error("Grammar Tutor Error:", error);
     return {
@@ -212,6 +262,24 @@ Use this structure:
     };
   }
 };
+
+function fixJSON(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    // Attempt to extract JSON block
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {}
+    }
+  }
+
+  return null; // still invalid
+}
+
+
 
 
 
