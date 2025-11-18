@@ -132,35 +132,46 @@ export const grammarChat = async (req, res) => {
       return res.status(404).json({ message: "Subtopic not found" });
     }
 
-    // FIX: Always extract a fallback name
     const subtopicName =
       subtopic.title?.en ||
       subtopic.title?.[Object.keys(subtopic.title)[0]] ||
       "Grammar";
 
-    // Get tutor response
-    const { reply, stage, questionNumber, correctedInput } =
-      await getGrammarTutorResponse(subtopicId, message, userId);
+    // Fetch tutor response
+    const {
+      replyNative,
+      replyLearning,
+      stage,
+      questionNumber,
+      correctedInput,
+    } = await getGrammarTutorResponse(subtopicId, message, userId);
 
-    // Save chat
+    // Save chat in DB
     await GrammarChatHistory.create({
       user: userId,
       subtopicId,
-      subtopicName,       // FIX APPLIED HERE
+      subtopicName,
       stage,
       questionNumber,
       userMessage: message,
-      botReply: reply,
+      replyNative,
+      replyLearning,
       correctedInput: correctedInput || null,
     });
 
-    return res.status(200).json({ reply, stage, questionNumber });
+    return res.status(200).json({
+      replyNative,
+      replyLearning,
+      stage,
+      questionNumber,
+    });
 
   } catch (error) {
     console.error("Grammar Chat Error:", error);
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
+
 
 
 

@@ -145,17 +145,21 @@ Keep it simple and suitable for kids.
 export const getGrammarTutorResponse = async (subtopicId, userInput, userId) => {
   try {
     const user = await User.findById(userId);
+
     const nativeLang = user?.nativeLanguage || "en";
     const learningLang = user?.languagePreference || "en";
 
     const subtopic = await GrammarSubtopic.findById(subtopicId);
     if (!subtopic) {
-      return { reply: "Topic not found.", correctedInput: null };
+      return { replyNative: "Topic not found.", replyLearning: "Topic not found." };
     }
 
-    const topicTitle = subtopic.title?.[learningLang] || subtopic.title?.en;
+    const topicTitle =
+      subtopic.title?.[learningLang] ||
+      subtopic.title?.en ||
+      Object.values(subtopic.title)[0];
 
-    // Load LAST history for stage progression
+    // Load last chat entry
     const lastMessage = await GrammarChatHistory.findOne({
       user: userId,
       subtopicId
@@ -164,103 +168,107 @@ export const getGrammarTutorResponse = async (subtopicId, userInput, userId) => 
     const stage = lastMessage?.stage || "intro";
     const questionNumber = lastMessage?.questionNumber || 0;
 
-    // ---- MASTER PROMPT ----
-const systemPrompt = `
+    // ==========================
+    // SYSTEM PROMPT (Dual Language)
+    // ==========================
+    const systemPrompt = `
 You are a structured grammar tutor.
-Teach the English grammar topic: "${topicTitle}"
-But speak ONLY in the user's native language: ${nativeLang}.
 
-NEVER speak English except inside quotes (" ") when giving example sentences.
+Teach the topic: "${topicTitle}"
 
------------------------
-STAGE FLOW LOGIC
------------------------
+You must produce TWO VERSIONS of every reply:
+1. replyNative → in ${nativeLang}
+2. replyLearning → in ${learningLang}
+
+Both replies should contain the SAME meanings.
+
+English example sentences must stay in English inside quotes (" ").
+
+------------------------------------
+STAGE LOGIC  
+------------------------------------
 
 STAGE: intro
-- Give a very simple explanation of the grammar rule **in ${nativeLang}**.
-- Then ask the user: 
-  "Do you understand?" translated fully into ${nativeLang}.
-- Tell the user to reply with the equivalent of "yes" or "no" in ${nativeLang}.
+- Explain the grammar rule simply.
+- Ask "Do you understand?" in both languages.
 
 STAGE: understanding-check
-- If the user's message means "no" in ${nativeLang}:  
-    → Re-explain the rule more simply in ${nativeLang}.  
-    → Ask again if they understand (in ${nativeLang}).
-- If the user's message means "yes" in ${nativeLang}:  
-    → Move to stage "examples".
+- If user says "no", re-explain simply.
+- If user says "yes", move to "examples".
 
 STAGE: examples
-- Give two simple English example sentences inside quotes (" ").
-- Explain each sentence clearly in ${nativeLang}.
-- Then ask the user: 
-  "Are you ready for practice questions?" translated into ${nativeLang}.
+- Give 2 English example sentences.
+- Explain them in both languages.
+- Ask if they are ready for practice.
 
 STAGE: questions
-- Ask a simple practice question based on questionNumber (1, 2, or 3).
-- After the user's answer:
-    → Give feedback in ${nativeLang}.
-    → Increase questionNumber by 1.
-- After questionNumber reaches 3:
-    → Move to stage "mastered".
+- Ask practice question based on questionNumber.
+- Evaluate user answer.
+- Increase questionNumber until 3.
+- Then move to "mastered".
 
 STAGE: mastered
-- Congratulate the user in ${nativeLang}.
-- Confirm they have mastered this topic.
+- Congratulate the user in both languages.
 
-
------------------------
-REQUIRED OUTPUT FORMAT
------------------------
-Always respond ONLY in this JSON format:
+------------------------------------
+OUTPUT FORMAT (MANDATORY)
+------------------------------------
+Return ONLY valid JSON:
 
 {
   "stage": "<nextStage>",
   "questionNumber": <nextNumber>,
-  "reply": "<your full message in ${nativeLang}>"
+  "replyNative": "<message in ${nativeLang}>",
+  "replyLearning": "<message in ${learningLang}>"
 }
 
-Do NOT include any text outside the JSON.
-Your entire output MUST be valid JSON.
+No extra text. No markdown.  
+Only JSON.
 `;
-
 
     const messages = [
       { role: "system", content: systemPrompt },
-      { role: "assistant", content: lastMessage?.botReply || "" },
+      { role: "assistant", content: lastMessage?.replyNative || "" },
+      { role: "assistant", content: lastMessage?.replyLearning || "" },
       { role: "user", content: userInput }
     ];
-const result = await model.invoke(messages);
 
-// Extract and repair JSON
-const parsed = fixJSON(result.content);
+    const result = await model.invoke(messages);
 
-if (!parsed) {
-  console.error("Invalid JSON from model:", result.content);
-  return {
-    reply: "AI format error.",
-    correctedInput: null
-  };
-}
+    const parsed = fixJSON(result.content);
 
-return {
-  reply: parsed.reply,
-  stage: parsed.stage,
-  questionNumber: parsed.questionNumber,
-  correctedInput: userInput,
-  language: learningLang,
-  nativeLang,
-  topic: topicTitle
-};
+    if (!parsed) {
+      return {
+        replyNative: "AI format error.",
+        replyLearning: "AI format error.",
+        stage,
+        questionNumber,
+        correctedInput: userInput
+      };
+    }
 
+    return {
+      replyNative: parsed.replyNative,
+      replyLearning: parsed.replyLearning,
+      stage: parsed.stage,
+      questionNumber: parsed.questionNumber,
+      correctedInput: userInput,
+      language: learningLang,
+      nativeLang,
+      topic: topicTitle
+    };
 
   } catch (error) {
     console.error("Grammar Tutor Error:", error);
     return {
-      reply: "Sorry, I couldn't teach this right now.",
+      replyNative: "I cannot teach right now.",
+      replyLearning: "I cannot teach right now.",
       correctedInput: null,
     };
   }
 };
+
+
 
 function fixJSON(raw) {
   try {
