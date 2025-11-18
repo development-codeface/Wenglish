@@ -222,7 +222,6 @@ Always respond ONLY in this JSON format:
 Do NOT include any text outside the JSON.
 Your entire output MUST be valid JSON.
 `;
-console.log(topicTitle);
 
 
     const messages = [
