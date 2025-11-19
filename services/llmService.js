@@ -59,27 +59,32 @@ export const getCategoryChatResponse = async (category, userInput, userId) => {
 
     const rawInput = userInput.trim();
 
-    // 1. Correct the input
+    // 1. Correct text — ALWAYS fallback to raw input
     let correction = await correctUserInput(rawInput, preferredLanguage);
-    if (!correction?.trim()) correction = rawInput;
+    if (!correction || typeof correction !== "string") correction = rawInput;
 
-    // 2. Extract clean corrected sentence (remove explanation section)
-    const cleanedCorrectedSentence = correction
+    // 2. Extract sentence — MUST NEVER BE EMPTY
+    let cleanedCorrectedSentence = correction
       .split("Corrected Sentence:").pop()
       .split("Explanation:")[0]
       .replace("👉", "")
       .trim();
 
-    const cleanSentence = cleanedCorrectedSentence || rawInput;
+    // If cleaned sentence is empty → fallback to raw
+    if (!cleanedCorrectedSentence) {
+      cleanedCorrectedSentence = rawInput;
+    }
 
-    // 3. LLM prompt
+    const cleanSentence = cleanedCorrectedSentence;
+
+    // 3. Strong bilingual prompt
     const systemPrompt = `
 You are a bilingual tutor.
 
-Using the message:
+User message:
 "${cleanSentence}"
 
-Respond according to the topic "${category}" in STRICT JSON:
+Respond about the topic "${category}" in STRICT JSON:
 
 {
   "preferred": "<reply only in ${preferredLanguage}>",
@@ -87,27 +92,34 @@ Respond according to the topic "${category}" in STRICT JSON:
 }
 
 Rules:
-- DO NOT include corrections or explanations.
-- DO NOT output markdown.
-- DO NOT mix languages.
-- Only output JSON.
+- Both fields must always exist.
+- No explanations.
+- No markdown.
+- No empty strings.
+- No mixing of languages.
 `;
 
-    const messages = [
+    const response = await model.invoke([
       new SystemMessage(systemPrompt),
       new HumanMessage(cleanSentence)
-    ];
+    ]);
 
-    const response = await model.invoke(messages);
     const rawReply = response?.content?.trim() || "{}";
 
     let parsedReply = {};
     try {
       parsedReply = JSON.parse(rawReply);
-    } catch (e) {
-      console.error("JSON parse fail:", e);
-      parsedReply = { preferred: "", native: "" };
+    } catch {
+      parsedReply = {};
     }
+
+    // 4. Guarantee fields ALWAYS exist
+    parsedReply.preferred =
+      (parsedReply.preferred || "").trim() ||
+      `I can help you with ${category}.`;
+    parsedReply.native =
+      (parsedReply.native || "").trim() ||
+      `ഞാൻ ${category} বিষয়ে നിങ്ങളെ സഹായിക്കും.`;
 
     return {
       reply: parsedReply,
@@ -119,11 +131,15 @@ Rules:
   } catch (error) {
     console.error("Chat error:", error);
     return {
-      reply: { preferred: "", native: "" },
+      reply: {
+        preferred: "I couldn't generate a reply.",
+        native: "എനിക്ക് മറുപടി സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല."
+      },
       correctedInput: null
     };
   }
 };
+
 
 
 
