@@ -225,15 +225,21 @@ export const getChatHistory = async (req, res) => {
 export const getChatHistoryById = async (req, res) => {
   try {
     const userId = req.user._id;
+    const { category } = req.query;
 
-    if (!req.query.category) {
+    if (!category) {
       return res.status(400).json({ message: "categoryId is required" });
     }
 
+    // Convert string → ObjectId
+    const categoryObjectId = new mongoose.Types.ObjectId(category);
+
     const history = await ChatHistory.find({
       user: userId,
-      category: req.query.category
-    }).sort({ createdAt: -1 });
+      category: categoryObjectId
+    })
+      .sort({ createdAt: -1 })
+      .select("userMessage correctedInput preferred native categoryName createdAt");
 
     res.status(200).json(history);
   } catch (error) {
