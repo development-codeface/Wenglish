@@ -45,64 +45,77 @@ Never use emojis.`
 
 export const getCategoryChatResponse = async (category, userInput, userId) => {
   try {
-    // 🔒 Validate input
-    if (!userInput || !userInput.trim()) {
+    if (!userInput?.trim()) {
       return {
-        reply: "Please type something for me to respond to.",
-        correctedInput: null,
-        language: "en"
+        reply: { preferred: "", native: "" },
+        correctedInput: null
       };
     }
 
-    // 🧠 Get user language
     const user = await User.findById(userId);
-    const language = user?.languagePreference || "en";
 
-    // 🧹 Clean the input
+    const preferred = user?.languagePreference || "en";
+    const native = user?.nativeLanguage || "en";
+
     const rawInput = userInput.trim();
 
-    // 🧩 Step 1: Correct input safely
-    let correctedInput = await correctUserInput(rawInput, language);
+    let correctedInput = await correctUserInput(rawInput, preferred);
+    if (!correctedInput?.trim()) correctedInput = rawInput;
 
-    // Fallback — if correction failed or returned nothing
-    if (!correctedInput || typeof correctedInput !== "string" || !correctedInput.trim()) {
-      correctedInput = rawInput;
-    }
+    const systemPrompt = `
+You are a friendly tutor helping the user with the topic "${category}".
 
-    // Step 2: Build safe system + human messages
+You must ALWAYS respond in STRICT JSON format:
+
+{
+  "preferred": "<reply ONLY in ${preferred}>",
+  "native": "<reply ONLY in ${native}>"
+}
+
+Rules:
+- No extra explanation.
+- No markdown.
+- No mixing languages.
+- The content in "preferred" must be ${preferred} only.
+- The content in "native" must be ${native} only.
+`;
+
     const messages = [
-      new SystemMessage(
-        `You are a friendly AI assistant who helps users talk about ${category} in only ${language}.
-Respond only in ${language}.
-Keep your sentences short, natural, and clear.
-If the user makes a grammar mistake, correct it gently in ${language}.`
-      ),
-      new HumanMessage(correctedInput.trim())
+      new SystemMessage(systemPrompt),
+      new HumanMessage(correctedInput)
     ];
 
-    // Step 3: Guard before invoking Gemini
-    const hasEmpty = messages.some(
-      (msg) => !msg.content || !msg.content.trim()
-    );
-    if (hasEmpty) {
-      console.error("⚠️ Gemini prompt empty. Messages:", messages);
-      return { reply: "I didn’t get that clearly.", correctedInput, language };
-    }
-
-    // Step 4: Send to Gemini safely
     const response = await model.invoke(messages);
 
-    const replyText = response?.content?.trim() || "I’m here! Let’s talk.";
+    const rawReply = response?.content?.trim() || "{}";
 
-    return { reply: replyText, correctedInput, language };
+    // Parse JSON safely
+    let parsedReply = {};
+    try {
+      parsedReply = JSON.parse(rawReply);
+    } catch (e) {
+      console.error("Parsing error:", e);
+      parsedReply = { preferred: "", native: "" };
+    }
+
+    return {
+      reply: parsedReply,
+      correctedInput,
+      preferredLanguage: preferred,
+      nativeLanguage: native
+    };
+
   } catch (error) {
     console.error("Error in category chat:", error);
     return {
-      reply: "Sorry, I couldn't generate a response right now.",
-      correctedInput: null,
+      reply: { preferred: "", native: "" },
+      correctedInput: null
     };
   }
 };
+
+
+
 
 export const getResponseFromLLM = async (message) => {
   try {
