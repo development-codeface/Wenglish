@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     usageHistory: [{ type: Date }],
     isOnboardingComplete: { type: Boolean, default: false }, 
+    fcmToken: { type: String },
   },
   { timestamps: true }
 );
