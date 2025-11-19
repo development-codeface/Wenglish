@@ -210,7 +210,7 @@ export const getChatHistory = async (req, res) => {
       { $match: filter },
 
       // Sort newest → oldest INSIDE each category
-      { $sort: { createdAt: -1 } },
+      { $sort: { createdAt: 1 } },
 
       {
         $group: {
