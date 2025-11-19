@@ -54,32 +54,25 @@ export const getCategoryChatResponse = async (category, userInput, userId) => {
 
     const user = await User.findById(userId);
 
-    const preferred = user?.languagePreference || "en";
-    const native = user?.nativeLanguage || "en";
+    const preferredLanguage = user?.languagePreference || "en";
+    const nativeLanguage = user?.nativeLanguage || "en";
 
     const rawInput = userInput.trim();
 
-    // -------------------------
-    // 1. Get correction result
-    // -------------------------
-    let correction = await correctUserInput(rawInput, preferred);
+    // 1. Correct the input
+    let correction = await correctUserInput(rawInput, preferredLanguage);
     if (!correction?.trim()) correction = rawInput;
 
-    // -------------------------
-    // 2. Extract JUST the corrected sentence
-    // -------------------------
+    // 2. Extract clean corrected sentence (remove explanation section)
     const cleanedCorrectedSentence = correction
-      .split("Corrected Sentence:").pop()  // remove heading
-      .split("Explanation:")[0]            // remove explanation
-      .replace("👉", "")                    // remove emojis
+      .split("Corrected Sentence:").pop()
+      .split("Explanation:")[0]
+      .replace("👉", "")
       .trim();
 
-    // Fallback if cleaning fails
     const cleanSentence = cleanedCorrectedSentence || rawInput;
 
-    // -------------------------
-    // 3. Build system prompt
-    // -------------------------
+    // 3. LLM prompt
     const systemPrompt = `
 You are a bilingual tutor.
 
@@ -89,8 +82,8 @@ Using the message:
 Respond according to the topic "${category}" in STRICT JSON:
 
 {
-  "preferred": "<reply only in ${preferred}>",
-  "native": "<same reply only in ${native}>"
+  "preferred": "<reply only in ${preferredLanguage}>",
+  "native": "<same reply only in ${nativeLanguage}>"
 }
 
 Rules:
@@ -118,9 +111,9 @@ Rules:
 
     return {
       reply: parsedReply,
-      correctedInput: correction,    // send FULL correction back to client
-      preferredLanguage: preferred,
-      nativeLanguage: native
+      correctedInput: correction,
+      preferred: preferredLanguage,
+      native: nativeLanguage
     };
 
   } catch (error) {
@@ -131,6 +124,7 @@ Rules:
     };
   }
 };
+
 
 
 

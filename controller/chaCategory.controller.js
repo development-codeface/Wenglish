@@ -147,47 +147,49 @@ export const categoryChat = async (req, res) => {
         error: "Category ID and message are required",
       });
     }
+    const language = req.user?.preferredLanguage || "en";
+    console.log(language);
+    
 
     const category = await ChatCategory.findById(categoryId);
     if (!category) {
-      return res.status(404).json({
-        error: "Category not found",
-      });
+      return res.status(404).json({ error: "Category not found" });
     }
 
-    const categoryName = category.name || category.title || category.categoryName;
+    const categoryName = category.title?.[language] || category.title?.en;
 
     const {
       reply,             
       correctedInput,
-      preferred,
-      native
+      preferred,         
+      native             
     } = await getCategoryChatResponse(categoryName, message, req.user._id);
 
-    // Save chat
+    // Save chat using flat reply fields
     const chatRecord = new ChatHistory({
       user: req.user._id,
       category: categoryId,
+      categoryName,
       userMessage: message,
-      botReply: reply,    
       correctedInput,
-      preferredLanguage: preferred,
-      nativeLanguage: native
+
+      // store reply as flat fields
+      preferred: reply.preferred,
+      native: reply.native
     });
 
     await chatRecord.save();
 
     res.status(200).json({
-      reply,               
-      correctedInput,
-      preferredLanguage: preferred,
-      nativeLanguage: native
+      reply,
+      correctedInput
     });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 
