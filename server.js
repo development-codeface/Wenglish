@@ -27,7 +27,7 @@ import userPerfomance from './routes/getUserPerfomance.routes.js';
 import languages from './routes/language.routes.js';
 import payments from './routes/payments.routes.js';
 import nativeLang from './routes/nativeLang.routes.js';
-import pushMessage from './routes/push.routes.js';
+// import pushMessage from './routes/push.routes.js';
 // import "./cron/dailyCheck.js";
 
 dotenv.config();
