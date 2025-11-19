@@ -3,25 +3,31 @@ import mongoose from 'mongoose';
 const ChatHistorySchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',  
+    ref: 'User',
     required: true,
   },
+
   category: {
-    type: String,  
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ChatCategory',
     required: true,
   },
-  categoryName:{
-    type: String,
-  },
+
+  categoryName: { type: String },
+
   userMessage: {
     type: String,
     required: true,
   },
- nativeLanguage: { type: String }, 
-languagePreference: { type: String},
+
   correctedInput: {
     type: String,
   },
+
+  // FLAT REPLY FIELDS
+  preferred: { type: String },
+  native: { type: String }
+
 }, { timestamps: true });
 
 export default mongoose.model('ChatHistory', ChatHistorySchema);
