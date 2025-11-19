@@ -59,60 +59,79 @@ export const getCategoryChatResponse = async (category, userInput, userId) => {
 
     const rawInput = userInput.trim();
 
-    let correctedInput = await correctUserInput(rawInput, preferred);
-    if (!correctedInput?.trim()) correctedInput = rawInput;
+    // -------------------------
+    // 1. Get correction result
+    // -------------------------
+    let correction = await correctUserInput(rawInput, preferred);
+    if (!correction?.trim()) correction = rawInput;
 
+    // -------------------------
+    // 2. Extract JUST the corrected sentence
+    // -------------------------
+    const cleanedCorrectedSentence = correction
+      .split("Corrected Sentence:").pop()  // remove heading
+      .split("Explanation:")[0]            // remove explanation
+      .replace("👉", "")                    // remove emojis
+      .trim();
+
+    // Fallback if cleaning fails
+    const cleanSentence = cleanedCorrectedSentence || rawInput;
+
+    // -------------------------
+    // 3. Build system prompt
+    // -------------------------
     const systemPrompt = `
-You are a friendly tutor helping the user with the topic "${category}".
+You are a bilingual tutor.
 
-You must ALWAYS respond in STRICT JSON format:
+Using the message:
+"${cleanSentence}"
+
+Respond according to the topic "${category}" in STRICT JSON:
 
 {
-  "preferred": "<reply ONLY in ${preferred}>",
-  "native": "<reply ONLY in ${native}>"
+  "preferred": "<reply only in ${preferred}>",
+  "native": "<same reply only in ${native}>"
 }
 
 Rules:
-- No extra explanation.
-- No markdown.
-- No mixing languages.
-- The content in "preferred" must be ${preferred} only.
-- The content in "native" must be ${native} only.
+- DO NOT include corrections or explanations.
+- DO NOT output markdown.
+- DO NOT mix languages.
+- Only output JSON.
 `;
 
     const messages = [
       new SystemMessage(systemPrompt),
-      new HumanMessage(correctedInput)
+      new HumanMessage(cleanSentence)
     ];
 
     const response = await model.invoke(messages);
-
     const rawReply = response?.content?.trim() || "{}";
 
-    // Parse JSON safely
     let parsedReply = {};
     try {
       parsedReply = JSON.parse(rawReply);
     } catch (e) {
-      console.error("Parsing error:", e);
+      console.error("JSON parse fail:", e);
       parsedReply = { preferred: "", native: "" };
     }
 
     return {
       reply: parsedReply,
-      correctedInput,
+      correctedInput: correction,    // send FULL correction back to client
       preferredLanguage: preferred,
       nativeLanguage: native
     };
 
   } catch (error) {
-    console.error("Error in category chat:", error);
+    console.error("Chat error:", error);
     return {
       reply: { preferred: "", native: "" },
       correctedInput: null
     };
   }
 };
+
 
 
 
