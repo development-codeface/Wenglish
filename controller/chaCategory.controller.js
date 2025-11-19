@@ -1,6 +1,7 @@
 import ChatCategory from "../models/chatCategories.model.js";
 import { getCategoryChatResponse } from "../services/llmService.js";
 import ChatHistory from "../models/chatHistory.model.js";
+import mongoose from "mongoose";
 
 // Create a new chat category (supports multilingual fields)
 export const createCategory = async (req, res) => {
@@ -198,29 +199,52 @@ export const getChatHistory = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const filter = { user: userId };
+    const filter = { user: new mongoose.Types.ObjectId(userId) };
 
+    // Convert category filter to ObjectId if provided
     if (req.query.category) {
-      filter.category = req.query.category;
+      filter.category = new mongoose.Types.ObjectId(req.query.category);
     }
 
     const history = await ChatHistory.aggregate([
       { $match: filter },
+
+      // Sort newest → oldest INSIDE each category
       { $sort: { createdAt: -1 } },
+
       {
         $group: {
           _id: "$category",
-          chats: { $push: "$$ROOT" }
+          chats: {
+            $push: {
+              _id: "$_id",
+              userMessage: "$userMessage",
+              correctedInput: "$correctedInput",
+              preferred: "$preferred",
+              native: "$native",
+              categoryName: "$categoryName",
+              createdAt: "$createdAt"
+            }
+          }
         }
       },
-      { $project: { category: "$_id", _id: 0, chats: 1 } }
+
+      {
+        $project: {
+          category: "$_id",
+          chats: 1,
+          _id: 0
+        }
+      }
     ]);
 
     res.status(200).json(history);
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 export const getChatHistoryById = async (req, res) => {
   try {
