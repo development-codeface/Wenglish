@@ -17,10 +17,8 @@ const ChatHistorySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  botReply: {
-    type: String,
-    required: true,
-  },
+ nativeLanguage: { type: String }, 
+languagePreference: { type: String},
   correctedInput: {
     type: String,
   },

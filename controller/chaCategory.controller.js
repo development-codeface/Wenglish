@@ -148,7 +148,6 @@ export const categoryChat = async (req, res) => {
       });
     }
 
-    // Fetch category by ID
     const category = await ChatCategory.findById(categoryId);
     if (!category) {
       return res.status(404).json({
@@ -156,35 +155,40 @@ export const categoryChat = async (req, res) => {
       });
     }
 
-    // Extract the actual category name or title depending on your schema
     const categoryName = category.name || category.title || category.categoryName;
 
-    const { reply, correctedInput } = await getCategoryChatResponse(
-      categoryName, 
-      message, 
-      req.user._id
-    );
+    const {
+      reply,             
+      correctedInput,
+      preferred,
+      native
+    } = await getCategoryChatResponse(categoryName, message, req.user._id);
 
-    // Save chat record
+    // Save chat
     const chatRecord = new ChatHistory({
       user: req.user._id,
       category: categoryId,
       userMessage: message,
-      botReply: reply,
+      botReply: reply,    
       correctedInput,
+      preferredLanguage: preferred,
+      nativeLanguage: native
     });
 
     await chatRecord.save();
 
     res.status(200).json({
-      reply,
+      reply,               
       correctedInput,
+      preferredLanguage: preferred,
+      nativeLanguage: native
     });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 // Get chat history for a user (optionally by category)
