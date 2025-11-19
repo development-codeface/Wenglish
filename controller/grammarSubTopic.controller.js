@@ -190,7 +190,7 @@ export const getGrammarChatHistory = async (req, res) => {
 
     const history = await GrammarChatHistory
       .find(filter)
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: 1 });
 
     res.status(200).json({
       status: true,
