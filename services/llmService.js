@@ -53,92 +53,106 @@ export const getCategoryChatResponse = async (category, userInput, userId) => {
     }
 
     const user = await User.findById(userId);
-
     const preferredLanguage = user?.languagePreference || "en";
-    const nativeLanguage = user?.nativeLanguage || "en";
+    const nativeLanguage = user?.nativeLanguage || "ml";
 
-    const rawInput = userInput.trim();
+    const cleanSentence = userInput.trim();
 
-    // 1. Correct text — ALWAYS fallback to raw input
-    let correction = await correctUserInput(rawInput, preferredLanguage);
-    if (!correction || typeof correction !== "string") correction = rawInput;
+const systemPrompt = `
+You are a strict bilingual information generator.
 
-    // 2. Extract sentence — MUST NEVER BE EMPTY
-    let cleanedCorrectedSentence = correction
-      .split("Corrected Sentence:").pop()
-      .split("Explanation:")[0]
-      .replace("👉", "")
-      .trim();
+PRIMARY GOAL:
+Always answer the USER MESSAGE directly. 
+Use the category only as contextual guidance — NOT the main answer.
 
-    // If cleaned sentence is empty → fallback to raw
-    if (!cleanedCorrectedSentence) {
-      cleanedCorrectedSentence = rawInput;
-    }
+The user message is: "${cleanSentence}"
+The topic context is: "${category}"
 
-    const cleanSentence = cleanedCorrectedSentence;
-
-    // 3. Strong bilingual prompt
-    const systemPrompt = `
-You are a bilingual tutor.
-
-User message:
-"${cleanSentence}"
-
-Respond about the topic "${category}" in STRICT JSON:
-
-{
-  "preferred": "<reply only in ${preferredLanguage}>",
-  "native": "<same reply only in ${nativeLanguage}>"
-}
-
-Rules:
-- Both fields must always exist.
-- No explanations.
-- No markdown.
-- No empty strings.
-- No mixing of languages.
+MANDATORY RULES:
+1. The response MUST directly address the user's message in factual, educational style.
+2. DO NOT give definitions of the category unless the user explicitly asks.
+3. NO greetings, NO casual talk, NO conversation, NO encouragement.
+4. NO examples unless the user asks.
+5. Output MUST be valid JSON with exactly these fields:
+   "preferred": answer only in ${preferredLanguage}
+   "native": same answer only in ${nativeLanguage}
+6. Strict JSON only. No markdown, no backticks, no commentary.
+7. If the user asks for lists (e.g., "Give me some famous destinations"), produce a list based on real locations.
+8. If clarification is needed, infer the simplest accurate interpretation and produce an answer.
+9. Even when providing lists, ALWAYS output them as a single multiline STRING.
+   Never use arrays or brackets. Never return ["item1", "item2"].
+   Each list item must be in its own line inside the string.
 `;
+
 
     const response = await model.invoke([
       new SystemMessage(systemPrompt),
       new HumanMessage(cleanSentence)
     ]);
 
-    const rawReply = response?.content?.trim() || "{}";
+    const raw = response?.content?.trim() || "";
 
-    let parsedReply = {};
+    // --- JSON Fixer Stage ---
+    // Extract JSON if model adds accidental text
+    const cleaned = raw
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+
+    const jsonSafe =
+      first !== -1 && last !== -1
+        ? cleaned.slice(first, last + 1)
+        : cleaned;
+
+    let parsedReply;
     try {
-      parsedReply = JSON.parse(rawReply);
-    } catch {
-      parsedReply = {};
+      parsedReply = JSON.parse(jsonSafe);
+    } catch (err) {
+      // Ask model to FIX the JSON only
+      const fixPrompt = `
+The following should be JSON but is invalid. Fix it.
+Return ONLY valid JSON with "preferred" and "native".
+
+Content:
+${cleaned}
+`;
+
+      const fixResponse = await model.invoke([
+        new SystemMessage(fixPrompt)
+      ]);
+
+      const fixedRaw = fixResponse?.content?.trim() || "{}";
+      parsedReply = JSON.parse(
+        fixedRaw
+          .replace(/```json/g, "")
+          .replace(/```/g, "")
+          .trim()
+      );
     }
 
-    // 4. Guarantee fields ALWAYS exist
-    parsedReply.preferred =
-      (parsedReply.preferred || "").trim() ||
-      `I can help you with ${category}.`;
-    parsedReply.native =
-      (parsedReply.native || "").trim() ||
-      `ഞാൻ ${category} বিষয়ে നിങ്ങളെ സഹായിക്കും.`;
-
     return {
-      reply: parsedReply,
-      correctedInput: correction,
-      preferred: preferredLanguage,
-      native: nativeLanguage
+      reply: {
+        preferred: parsedReply.preferred || "",
+        native: parsedReply.native || ""
+      },
+      correctedInput: cleanSentence
     };
 
   } catch (error) {
     console.error("Chat error:", error);
     return {
       reply: {
-        preferred: "I couldn't generate a reply.",
-        native: "എനിക്ക് മറുപടി സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല."
+        preferred: "",
+        native: ""
       },
       correctedInput: null
     };
   }
 };
+
 
 
 
