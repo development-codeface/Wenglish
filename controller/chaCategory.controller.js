@@ -148,9 +148,9 @@ export const categoryChat = async (req, res) => {
         error: "Category ID and message are required",
       });
     }
-    const language = req.user?.preferredLanguage || "en";
-    console.log(language);
-    
+
+    const user = req.user;
+    const language = user?.preferredLanguage || "en";
 
     const category = await ChatCategory.findById(categoryId);
     if (!category) {
@@ -160,36 +160,37 @@ export const categoryChat = async (req, res) => {
     const categoryName = category.title?.[language] || category.title?.en;
 
     const {
-      reply,             
+      reply,
       correctedInput,
-      preferred,         
-      native             
-    } = await getCategoryChatResponse(categoryName, message, req.user._id);
+      preferred,
+      native
+    } = await getCategoryChatResponse(categoryName, message, user._id);
 
-    // Save chat using flat reply fields
+    // Save to DB
     const chatRecord = new ChatHistory({
-      user: req.user._id,
+      user: user._id,
       category: categoryId,
       categoryName,
       userMessage: message,
       correctedInput,
-
-      // store reply as flat fields
       preferred: reply.preferred,
       native: reply.native
     });
 
     await chatRecord.save();
 
-    res.status(200).json({
-      reply,
+    // Return flat fields
+    return res.status(200).json({
+      preferred: reply.preferred,
+      native: reply.native,
       correctedInput
     });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 };
+
 
 
 
