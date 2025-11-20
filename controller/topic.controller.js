@@ -39,23 +39,39 @@ export const createTopic = async (req, res) => {
 // Get all topics (localized)
 export const getAllTopics = async (req, res) => {
   try {
-    const userLang = req.user?.nativeLanguage || "en";
+    // Get user languages
+    const preferredLang = req.user?.languagePreference || "en";
+    const nativeLang = req.user?.nativeLanguage || "en";
+
     const topics = await Topic.find().sort({ createdAt: -1 });
 
     const localizedTopics = topics.map((topic) => ({
       _id: topic._id,
-      title: topic.title?.[userLang] || topic.title?.en,
-      description: topic.description?.[userLang] || topic.description?.en,
+
+      // Title in both languages
+      title: {
+        preferred: topic.title?.[preferredLang] || topic.title?.en || "",
+        native: topic.title?.[nativeLang] || topic.title?.en || ""
+      },
+
+      // Description in both languages
+      description: {
+        preferred: topic.description?.[preferredLang] || topic.description?.en || "",
+        native: topic.description?.[nativeLang] || topic.description?.en || ""
+      },
+
       imageUrl: topic.imageUrl,
       redirect: topic.redirect,
-      createdAt: topic.createdAt,
+      createdAt: topic.createdAt
     }));
 
     res.status(200).json(localizedTopics);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 // Get all topics with all languages
