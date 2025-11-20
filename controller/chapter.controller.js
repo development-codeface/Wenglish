@@ -90,7 +90,9 @@ export const getAllChaptersWithLessons = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findById(userId);
-    const userLang = user.nativeLanguage || "en";
+
+    const nativeLang = user?.nativeLanguage || "en";        // User's mother tongue
+    const preferredLang = user?.languagePreference || "en"; // Study language
 
     const progress = await UserProgress.findOne({ userId });
 
@@ -103,7 +105,6 @@ export const getAllChaptersWithLessons = async (req, res) => {
 
       acc[chapId] = acc[chapId] || [];
 
-      // ✅ get correct option object
       const correctOpt = lesson.options.find(
         (opt) => opt.en === lesson.correctAnswer.en
       );
@@ -111,22 +112,36 @@ export const getAllChaptersWithLessons = async (req, res) => {
       acc[chapId].push({
         _id: lesson._id,
         order: lesson.order,
-        title: translate(lesson.title, userLang),
-        description: translate(lesson.description, userLang),
+
+        title: {
+          native: translate(lesson.title, nativeLang),
+          preferred: translate(lesson.title, preferredLang)
+        },
+
+        description: {
+          native: translate(lesson.description, nativeLang),
+          preferred: translate(lesson.description, preferredLang)
+        },
+
         videoUrl: lesson.videoUrl || "",
         thumbnail: lesson.thumbnail || "",
-        question: translate(lesson.question, userLang),
+
+        question: {
+          native: translate(lesson.question, nativeLang),
+          preferred: translate(lesson.question, preferredLang)
+        },
 
         options: lesson.options.map((opt) => ({
           optionId: opt.optionId,
-          text: translate(opt, userLang)
+          native: translate(opt, nativeLang),
+          preferred: translate(opt, preferredLang)
         })),
 
-        // ✅ Return correctAnswer as object with ID and text
         correctAnswer: correctOpt
           ? {
               optionId: correctOpt.optionId,
-              text: translate(correctOpt, userLang),
+              native: translate(correctOpt, nativeLang),
+              preferred: translate(correctOpt, preferredLang)
             }
           : null,
 
@@ -142,21 +157,32 @@ export const getAllChaptersWithLessons = async (req, res) => {
     const data = chapters.map((chapter) => ({
       _id: chapter._id,
       order: chapter.order,
-      title: translate(chapter.title, userLang),
-      intro: translate(chapter.intro, userLang),
+
+      title: {
+        native: translate(chapter.title, nativeLang),
+        preferred: translate(chapter.title, preferredLang)
+      },
+
+      intro: {
+        native: translate(chapter.intro, nativeLang),
+        preferred: translate(chapter.intro, preferredLang)
+      },
+
       lessons: lessonsByChapter[chapter._id.toString()] || [],
     }));
 
     res.status(200).json({
       status: true,
-      message: `Chapters and lessons in ${userLang}`,
-      chapters: data,
+      message: "Chapters and lessons returned in both languages",
+      chapters: data
     });
+
   } catch (err) {
     console.error("Error fetching chapters with lessons:", err);
     res.status(500).json({ status: false, message: err.message });
   }
 };
+
 
 
 export const updateChapter = async (req, res) => {
