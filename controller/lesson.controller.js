@@ -84,11 +84,13 @@ export const getLessonsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.params;
     const userId = req.user.id;
+
     const user = await User.findById(userId);
-    const lang = user?.nativeLanguage || "en";
-    const studyLang = user?.languagePreference || "en";
+    const nativeLang = user?.nativeLanguage || "en";      // User mother tongue
+    const preferredLang = user?.languagePreference || "en"; // Study language
 
     const progress = await UserProgress.findOne({ userId });
+
     const lessons = await Lesson.find({ chapterId }).sort({ order: 1 });
 
     const lessonsResponse = lessons.map((lesson) => {
@@ -97,34 +99,57 @@ export const getLessonsByChapter = async (req, res) => {
       return {
         _id: lesson._id,
         order: lesson.order,
-        title: translate(lesson.title, lang),
-        description: translate(lesson.description, lang),
-        question: translate(lesson.question, lang),
+
+        title: {
+          native: translate(lesson.title, nativeLang),
+          preferred: translate(lesson.title, preferredLang)
+        },
+
+        description: {
+          native: translate(lesson.description, nativeLang),
+          preferred: translate(lesson.description, preferredLang)
+        },
+
+        question: {
+          native: translate(lesson.question, nativeLang),
+          preferred: translate(lesson.question, preferredLang)
+        },
 
         options: lesson.options.map((opt) => ({
           optionId: opt.optionId,
-          text: translate(opt, studyLang)
+          native: translate(opt, nativeLang),
+          preferred: translate(opt, preferredLang)
         })),
 
-        correctAnswer: correctOpt ? {
-          optionId: correctOpt.optionId,
-          text: translate(correctOpt, studyLang)
-        } : null,
+        correctAnswer: correctOpt
+          ? {
+              optionId: correctOpt.optionId,
+              native: translate(correctOpt, nativeLang),
+              preferred: translate(correctOpt, preferredLang)
+            }
+          : null,
 
         videoUrl: lesson.videoUrl,
         thumbnail: lesson.thumbnail,
 
-        // Always unlock first lesson
-        locked: lesson.order === 1 ? false : !progress?.unlockedLessons.includes(lesson._id),
+        locked:
+          lesson.order === 1
+            ? false
+            : !progress?.unlockedLessons.includes(lesson._id)
       };
     });
 
-    return res.status(200).json({ status: true, message: "Lessons returned", lessons: lessonsResponse });
+    return res.status(200).json({
+      status: true,
+      message: "Lessons returned",
+      lessons: lessonsResponse
+    });
 
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
 };
+
 
 // Get Lessons (Admin / Full View)
 export const getLessonsByChapterAll = async (req, res) => {
