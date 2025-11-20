@@ -5,6 +5,7 @@ import TempUser from "../models/tempUser.model.js";
 import User from "../models/user.model.js";
 import { sendEmail } from "../utils/mailer.js";
 import { initializeUserProgress } from "../controller/progress.controller.js";
+import FCMToken from "../models/fcmToken.model.js";
 
 export const verifyEmailOTP = async (req, res) => {
   try {
@@ -17,6 +18,8 @@ export const verifyEmailOTP = async (req, res) => {
     const tempUser = await TempUser.findOne({ email });
     if (!tempUser) return res.status(404).json({ message: "No pending registration found" });
 
+    const { fcmToken } = tempUser; 
+
     const user = await User.create({
       ...tempUser.toObject(),
       isVerified: true,
@@ -28,6 +31,14 @@ export const verifyEmailOTP = async (req, res) => {
         isActive: false,
       },
     });
+
+     if (fcmToken) {
+      await FCMToken.create({
+  user: user._id,
+  token: fcmToken   
+});
+
+    }
 
     await initializeUserProgress(user._id);
 

@@ -8,10 +8,11 @@ import crypto from "crypto";
 import OTP from "../models/otp.model.js";
 import TempUser from "../models/tempUser.model.js";
 import { on } from "events";
+import FCMToken from "../models/fcmToken.model.js";
 
 export const registerUser = async (req, res) => {
   try {
-    let { name, email, password, role, phone, languagePreference, whyLearn, nativeLanguage } = req.body;
+    let { name, email, password, role, phone, languagePreference, whyLearn, nativeLanguage, fcmToken } = req.body;
 
     // Clean up languagePreference
     if (typeof languagePreference === "string") {
@@ -45,7 +46,8 @@ export const registerUser = async (req, res) => {
       profileImage,
       languagePreference,
       whyLearn,
-      nativeLanguage
+      nativeLanguage,
+      fcmToken
     });
 
     // Generate and send OTP
@@ -72,7 +74,7 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password ,fcmToken} = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -95,6 +97,24 @@ export const loginUser = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
+
+  if (fcmToken) {
+  // Check if token exists for ANY user (globally unique)
+  const exists = await FCMToken.findOne({ token: fcmToken });
+
+  if (!exists) {
+    // Create new token entry
+    await FCMToken.create({
+      user: user._id,
+      token: fcmToken
+    });
+  } else {
+    // Update user assignment (helps during re-login after reinstall)
+    exists.user = user._id;
+    exists.lastUsedAt = new Date();
+    await exists.save();
+  }
+}
 
     res.status(200).json({
       message: "Login successful",

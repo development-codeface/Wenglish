@@ -11,6 +11,7 @@ const tempUserSchema = new mongoose.Schema(
     languagePreference: String,
     whyLearn: [String],
     isOnboardingComplete: { type: Boolean, default: false },
+    fcmToken: { type: String },
   },
   { timestamps: true }
 );

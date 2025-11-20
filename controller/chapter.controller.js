@@ -91,8 +91,8 @@ export const getAllChaptersWithLessons = async (req, res) => {
     const userId = req.user.id;
     const user = await User.findById(userId);
 
-    const nativeLang = user?.nativeLanguage || "en";        // User's mother tongue
-    const preferredLang = user?.languagePreference || "en"; // Study language
+    const nativeLang = user?.nativeLanguage || "en";       
+    const preferredLang = user?.languagePreference || "en"; 
 
     const progress = await UserProgress.findOne({ userId });
 
