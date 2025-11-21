@@ -12,9 +12,7 @@ const safeParse = (input, fallback = {}) => {
   }
 };
 
-/* ============================================================
-   CREATE SUBTOPIC (correctAnswers stores letter TEXT)
-============================================================ */
+
 export const createSubTopic = async (req, res) => {
   try {
     const { topicId } = req.body;
@@ -53,19 +51,31 @@ export const createSubTopic = async (req, res) => {
 };
 
 
-/* ============================================================
-   GET ALL SUBTOPICS (LOCALIZED)
-============================================================ */
+
 export const getAllSubTopics = async (req, res) => {
   try {
     const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
 
+    // Fetch Subtopics
     const subTopics = await SubTopicAtoZ.find(filter)
       .populate("topicId", "title description imageUrl")
       .sort({ createdAt: -1 });
 
+    // Fetch letters in correct order
+    const allLetters = await Letters.find().sort({ position: 1 });
+
     const userLang = req.user?.languagePreference || "en";
     const nativeLang = req.user?.nativeLanguage || "en";
+
+    // --- Build language-wise sorted letter list ---
+    const lettersByLang = {
+      en: allLetters.map((l) => ({ id: l._id, value: l.en })).filter(x => x.value),
+      hi: allLetters.map((l) => ({ id: l._id, value: l.hi })).filter(x => x.value),
+      ta: allLetters.map((l) => ({ id: l._id, value: l.ta })).filter(x => x.value),
+      te: allLetters.map((l) => ({ id: l._id, value: l.te })).filter(x => x.value),
+      kn: allLetters.map((l) => ({ id: l._id, value: l.kn })).filter(x => x.value),
+      ml: allLetters.map((l) => ({ id: l._id, value: l.ml })).filter(x => x.value),
+    };
 
     const formatted = subTopics.map((s) => ({
       _id: s._id,
@@ -77,23 +87,27 @@ export const getAllSubTopics = async (req, res) => {
       topic: s.topicId
         ? {
             title: s.topicId.title?.[userLang] || s.topicId.title?.en,
-            description: s.topicId.description?.[userLang] || s.topicId.description?.en,
-            imageUrl: s.topicId.imageUrl
+            description:
+              s.topicId.description?.[userLang] ||
+              s.topicId.description?.en,
+            imageUrl: s.topicId.imageUrl,
           }
-        : null
+        : null,
     }));
 
-    res.status(200).json(formatted);
-
+    res.status(200).json({
+      subTopics: formatted,
+      letters: lettersByLang, // ⭐ PERFECT SORTED LIST LANG-WISE
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 
-/* ============================================================
-   GET ALL SUBTOPICS (ALL LANGS)
-============================================================ */
+
+
+
 export const getAllSubTopicsAllLanguages = async (req, res) => {
   try {
     const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
@@ -113,9 +127,7 @@ export const getAllSubTopicsAllLanguages = async (req, res) => {
 };
 
 
-/* ============================================================
-   GET SUBTOPIC BY ID (LOCALIZED)
-============================================================ */
+
 export const getSubTopicById = async (req, res) => {
   try {
     const subTopic = await SubTopicAtoZ.findById(req.params.id)
@@ -126,15 +138,33 @@ export const getSubTopicById = async (req, res) => {
     }
 
     const userLang = req.user?.languagePreference || "en";
+    const nativeLang = req.user?.nativeLanguage || "en";
 
-    res.status(200).json({
+    // Fetch all letters sorted by A→Z equivalent order
+    const letters = await Letters.find().sort({ position: 1 }).lean();
+
+    const formatted = {
       _id: subTopic._id,
       question: subTopic.question?.[userLang] || subTopic.question?.en,
       fullWord: subTopic.fullWord?.[userLang] || subTopic.fullWord?.en,
-      hint: subTopic.hint?.[userLang] || subTopic.hint?.en,
+      hint: subTopic.hint?.[nativeLang] || subTopic.hint?.en,
       correctAnswer: subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en,
       imageUrl: subTopic.imageUrl,
-      topic: subTopic.topicId || null
+      topic: subTopic.topicId
+        ? {
+            _id: subTopic.topicId._id,
+            title: subTopic.topicId.title?.[userLang] || subTopic.topicId.title?.en,
+            description:
+              subTopic.topicId.description?.[userLang] ||
+              subTopic.topicId.description?.en,
+            imageUrl: subTopic.topicId.imageUrl
+          }
+        : null
+    };
+
+    res.status(200).json({
+      subTopic: formatted,
+      letters // sorted A→Z by position
     });
 
   } catch (error) {
@@ -143,9 +173,6 @@ export const getSubTopicById = async (req, res) => {
 };
 
 
-/* ============================================================
-   UPDATE SUBTOPIC
-============================================================ */
 export const updateSubTopic = async (req, res) => {
   try {
     const existing = await SubTopicAtoZ.findById(req.params.id);
