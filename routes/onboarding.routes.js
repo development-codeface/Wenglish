@@ -15,9 +15,9 @@ import { uploadImages } from "../middlewares/upload.Instance.js";
 const router = express.Router();
 
 router.post("/",authMiddleware,adminMiddleware,uploadImages.none(), addQuestion);        
-router.get("/", getAllQuestions);     
-router.get("/all", getAllQuestionsAllLanguages); 
-router.get("/:id", getQuestionById); 
+router.get("/",authMiddleware, getAllQuestions);     
+router.get("/all",authMiddleware, getAllQuestionsAllLanguages); 
+router.get("/:id",authMiddleware, getQuestionById); 
 router.put("/:id",authMiddleware,adminMiddleware, updateQuestion);  
 router.delete("/:id",authMiddleware,adminMiddleware, deleteQuestion);
 router.get("/user/answers",authMiddleware, getUserAnswers);

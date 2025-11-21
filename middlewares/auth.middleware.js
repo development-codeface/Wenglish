@@ -16,12 +16,11 @@ export const authMiddleware = async (req, res, next) => {
     const todayStr = today.toISOString().split("T")[0];
     const cutoffDate = new Date();
     cutoffDate.setDate(today.getDate() - 30);
-    const existingDates = user.usageHistory?.map(
-      d => d.toISOString().split("T")[0]
-    ) || [];
-    if (!existingDates.includes(todayStr)) {
-      user.usageHistory.push(today);
-    }
+  const existingDates = user.usageHistory?.map(d => d.toISOString().split("T")[0]) || [];
+if (!existingDates.includes(todayStr)) {
+  user.usageHistory.push(today);
+}
+
     user.usageHistory = user.usageHistory.filter(
       d => new Date(d) >= cutoffDate
     );
