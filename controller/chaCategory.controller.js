@@ -37,21 +37,34 @@ export const createCategory = async (req, res) => {
 // Get all chat categories — localized for user's preferred language
 export const getAllCategories = async (req, res) => {
   try {
-    const userLang = req.user?.nativeLanguage || "en";
+    const nativeLang = req.user?.nativeLanguage || "en";
+    const preferredLang = req.user?.languagePreference || "en";
+
     const categories = await ChatCategory.find();
 
-    const localizedCategories = categories.map((cat) => ({
+    const localized = categories.map((cat) => ({
       _id: cat._id,
       image: cat.image,
-      title: cat.title?.[userLang] || cat.title?.en,
-      description: cat.description?.[userLang] || cat.description?.en,
+
+      // return only these two language values
+      title: {
+        native: cat.title?.[nativeLang] || cat.title?.en,
+        preferred: cat.title?.[preferredLang] || cat.title?.en
+      },
+
+      description: {
+        native: cat.description?.[nativeLang] || cat.description?.en,
+        preferred: cat.description?.[preferredLang] || cat.description?.en
+      }
     }));
 
-    res.status(200).json(localizedCategories);
+    res.status(200).json(localized);
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 export const getAllCategoriesAllLang = async (req, res) => {
   try {
