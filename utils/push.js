@@ -10,8 +10,9 @@ export const sendPushNotification = async (token, title, body, data = {}) => {
 
     const response = await admin.messaging().send(message);
     return { success: true, response };
+
   } catch (err) {
-    console.error("Push Error:", err);
+    console.error("Push Error:", err?.errorInfo || err);
     return { success: false, error: err };
   }
 };

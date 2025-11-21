@@ -80,70 +80,100 @@ export const testPush = async (req, res) => {
 
 export const pushToUser = async (req, res) => {
   try {
-    const { userId, title, body } = req.body;
+    const { userIds, title, body } = req.body;
 
-    if (!userId || !title || !body) {
-      return res.status(400).json({ message: "userId, title, and body required" });
+    // ⭐ support image upload
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ message: "userIds must be a non-empty array" });
     }
 
-    const tokens = await FCMToken.find({ user: userId });
-
-    
-
-    if (!tokens || tokens.length === 0) {
-      return res.status(404).json({ message: "No FCM token found for this user" });
+    if (!title || !body) {
+      return res.status(400).json({ message: "title and body are required" });
     }
 
-    const results = [];
-    const successOnly = [];
+    const finalResults = [];
+    const successfulPushes = [];
 
-    for (const entry of tokens) {
-      const resp = await sendPushNotification(entry.token, title, body);
-      
-      const status = resp?.success ? "success" : "failed";
-      
-      results.push({
-        token: entry.token,
-        status,
-        response: resp
-      });
+    for (const userId of userIds) {
+      const tokens = await FCMToken.find({ user: userId });
 
-      if (status === "success") {
-        successOnly.push({
-          token: entry.token,
+      if (!tokens.length) {
+        finalResults.push({
+          userId,
+          message: "No FCM tokens for user",
+          results: []
+        });
+        continue;
+      }
+
+      const perUserResults = [];
+      const perUserSuccess = [];
+
+      for (const t of tokens) {
+        const resp = await sendPushNotification(
+          t.token,
+          title,
+          body,
+          imageUrl ? { imageUrl } : {}
+        );
+
+        const status = resp?.success ? "success" : "failed";
+
+        const entry = {
+          token: t.token,
           status,
           response: resp
+        };
+
+        perUserResults.push(entry);
+        if (status === "success") perUserSuccess.push(entry);
+      }
+
+      // ⭐ Save push log only if at least one token succeeded
+      if (perUserSuccess.length > 0) {
+        successfulPushes.push({
+          user: userId,
+          title,
+          body,
+          imageUrl,
+          sentToAll: false,
+          tokensUsed: perUserSuccess
         });
       }
+
+      finalResults.push({
+        userId,
+        message: "completed",
+        results: perUserResults
+      });
     }
 
-    // ⭐ Only save if at least one success
-    if (successOnly.length > 0) {
-      await PushNotification.create({
-        user: userId,
-        title,
-        body,
-        sentToAll: false,
-        tokensUsed: successOnly
-      });
+    // ⭐ Save all successful push logs together
+    if (successfulPushes.length > 0) {
+      await PushNotification.insertMany(successfulPushes);
     }
 
     res.json({
       success: true,
-      sentTo: tokens.length,
-      results
+      totalUsersProcessed: userIds.length,
+      imageUploaded: !!imageUrl,
+      finalResults
     });
 
   } catch (err) {
-    console.error("pushToUser error:", err);
+    console.error("pushToUsers error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
 
+
 export const pushToAllUsers = async (req, res) => {
   try {
     const { title, body } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     if (!title || !body) {
       return res.status(400).json({ message: "title and body required" });
@@ -158,47 +188,53 @@ export const pushToAllUsers = async (req, res) => {
     const successOnly = [];
 
     for (const t of tokens) {
-      const resp = await sendPushNotification(t.token, title, body);
+      const resp = await sendPushNotification(
+        t.token,
+        title,
+        body,
+        imageUrl ? { imageUrl } : {}
+      );
+
       const status = resp?.success ? "success" : "failed";
 
-      results.push({
+      const entry = {
         user: t.user,
         token: t.token,
         status,
         response: resp
-      });
+      };
+
+      results.push(entry);
 
       if (status === "success") {
-        successOnly.push({
-          user: t.user,
-          token: t.token,
-          status,
-          response: resp
-        });
+        successOnly.push(entry);
       }
     }
 
-    // ⭐ Save only successful push sends
     if (successOnly.length > 0) {
       await PushNotification.create({
         user: null,
         title,
         body,
+        imageUrl,
         sentToAll: true,
         tokensUsed: successOnly
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       sentTo: tokens.length,
-      message: "Push processed",
+      saved: successOnly.length > 0,
+      imageUrl,
       results
     });
 
   } catch (err) {
     console.error("Push to all error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
+
 

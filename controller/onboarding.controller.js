@@ -77,13 +77,16 @@ export const getAllQuestions = async (req, res) => {
     const localized = questions.map((q) => ({
       _id: q._id,
       icon: q.icon,
-      questionText: q.questionText[userLang] || q.questionText.en,
+      questionText: q.questionText[userLang],  
       options: q.options.map((o) => ({
         _id: o._id,
         icon: o.icon,
-        text: o.text[userLang] || o.text.en,
+        text: o.text[userLang],  
       })),
     }));
+
+    console.log(userLang);
+    
 
     res.status(200).json({
       message: "Questions fetched successfully",
@@ -95,6 +98,7 @@ export const getAllQuestions = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Get Question by ID (localized)
 export const getQuestionById = async (req, res) => {
@@ -112,11 +116,11 @@ export const getQuestionById = async (req, res) => {
       question: {
         _id: q._id,
         icon: q.icon,
-        questionText: q.questionText[userLang] || q.questionText.en,
+        questionText: q.questionText[userLang],   // ⭐ only native language
         options: q.options.map((o) => ({
           _id: o._id,
           icon: o.icon,
-          text: o.text[userLang] || o.text.en,
+          text: o.text[userLang],                // ⭐ only native language
         })),
       },
     });
@@ -125,6 +129,7 @@ export const getQuestionById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Update Question
 export const updateQuestion = async (req, res) => {
