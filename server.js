@@ -28,8 +28,9 @@ import languages from './routes/language.routes.js';
 import payments from './routes/payments.routes.js';
 import nativeLang from './routes/nativeLang.routes.js';
 import pushMessage from './routes/push.routes.js';
-import "./cron/dailyCheck.js";
-import pushNotification from './routes/pushNotification.routes.js';
+// import "./cron/dailyCheck.js";
+// import pushNotification from './routes/pushNotification.routes.js';
+import letters from './routes/letters.routes.js';
 
 dotenv.config();
 connectDB();
@@ -70,8 +71,9 @@ app.use("/api/user-performance", userPerfomance);
 app.use("/api/languages", languages);
 app.use("/api/payments", payments);
 app.use("/api/native-languages", nativeLang);
-app.use("/api/push", pushMessage);
-app.use("/api/push-notifications", pushNotification);
+// app.use("/api/push", pushMessage);
+// app.use("/api/push-notifications", pushNotification);
+app.use("/api/letters", letters);
 const server = http.createServer(app);
 
 initChatSocket(server);
