@@ -119,7 +119,7 @@ export const getUserPerformanceSummary = async (req, res) => {
 export const getPerformanceByModule = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { moduleType } = req.query;
+    const { moduleType } = req.params;
     const userLang = req.user?.languagePreference || "en";
 
     if (!moduleType) {
