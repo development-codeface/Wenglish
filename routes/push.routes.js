@@ -12,7 +12,7 @@ router.post(
   "/push-to-user",
   authMiddleware,
   adminMiddleware,
-  uploadImages.single("image"),
+  uploadImages.single("imageUrl"),
   pushToUser
 );
 
@@ -20,7 +20,7 @@ router.post(
   "/push-to-all",
   authMiddleware,
   adminMiddleware,
-  uploadImages.single("image"),
+  uploadImages.single("imageUrl"),
   pushToAllUsers
 );
 
