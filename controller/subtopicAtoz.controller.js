@@ -78,19 +78,15 @@ export const getAllSubTopics = async (req, res) => {
   try {
     const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
 
-    // Fetch subtopics
     const subTopics = await SubTopicAtoZ.find(filter)
       .populate("topicId", "title description imageUrl")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: 1 });
 
     const userLang = req.user?.languagePreference || "en";
     const nativeLang = req.user?.nativeLanguage || "en";
 
-    // Fetch all letters sorted
-    const allLetters = await Letters.find().sort({ position: 1 }).lean();
-
-    console.log(nativeLang);
-    
+    // Fetch letters IN THE ORDER THEY WERE INSERTED
+    const allLetters = await Letters.find().lean();
 
     const preferredLang = allLetters
       .map((l) => ({
@@ -99,7 +95,6 @@ export const getAllSubTopics = async (req, res) => {
       }))
       .filter((item) => item.value && item.value.trim() !== "");
 
-    // Build direct array (NO wrapper)
     const result = subTopics.map((s) => ({
       _id: s._id,
       question: s.question?.[userLang] || s.question?.en,
@@ -116,7 +111,7 @@ export const getAllSubTopics = async (req, res) => {
             imageUrl: s.topicId.imageUrl
           }
         : null,
-      letters: preferredLang
+      letters: preferredLang  // EXACT insertion order
     }));
 
     res.status(200).json(result);
@@ -125,6 +120,7 @@ export const getAllSubTopics = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 
