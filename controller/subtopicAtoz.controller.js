@@ -56,28 +56,27 @@ export const getAllSubTopics = async (req, res) => {
   try {
     const filter = req.query.topicId ? { topicId: req.query.topicId } : {};
 
-    // Fetch Subtopics
+    // Fetch subtopics
     const subTopics = await SubTopicAtoZ.find(filter)
       .populate("topicId", "title description imageUrl")
       .sort({ createdAt: -1 });
 
-    // Fetch letters in correct order
-    const allLetters = await Letters.find().sort({ position: 1 });
-
     const userLang = req.user?.languagePreference || "en";
     const nativeLang = req.user?.nativeLanguage || "en";
 
-    // --- Build language-wise sorted letter list ---
-    const lettersByLang = {
-      en: allLetters.map((l) => ({ id: l._id, value: l.en })).filter(x => x.value),
-      hi: allLetters.map((l) => ({ id: l._id, value: l.hi })).filter(x => x.value),
-      ta: allLetters.map((l) => ({ id: l._id, value: l.ta })).filter(x => x.value),
-      te: allLetters.map((l) => ({ id: l._id, value: l.te })).filter(x => x.value),
-      kn: allLetters.map((l) => ({ id: l._id, value: l.kn })).filter(x => x.value),
-      ml: allLetters.map((l) => ({ id: l._id, value: l.ml })).filter(x => x.value),
-    };
+    // Fetch all letters sorted
+    const allLetters = await Letters.find().sort({ position: 1 }).lean();
 
-    const formatted = subTopics.map((s) => ({
+    // Native-only letters list
+    const nativeLetters = allLetters
+      .map((l) => ({
+        id: l._id,
+        value: l[nativeLang] || ""
+      }))
+      .filter((item) => item.value && item.value.trim() !== "");
+
+    // Build direct array (NO wrapper)
+    const result = subTopics.map((s) => ({
       _id: s._id,
       question: s.question?.[userLang] || s.question?.en,
       fullWord: s.fullWord?.[userLang] || s.fullWord?.en,
@@ -90,19 +89,19 @@ export const getAllSubTopics = async (req, res) => {
             description:
               s.topicId.description?.[userLang] ||
               s.topicId.description?.en,
-            imageUrl: s.topicId.imageUrl,
+            imageUrl: s.topicId.imageUrl
           }
         : null,
+      letters: nativeLetters
     }));
 
-    res.status(200).json({
-      subTopics: formatted,
-      letters: lettersByLang, // ⭐ PERFECT SORTED LIST LANG-WISE
-    });
+    res.status(200).json(result);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 
@@ -140,10 +139,19 @@ export const getSubTopicById = async (req, res) => {
     const userLang = req.user?.languagePreference || "en";
     const nativeLang = req.user?.nativeLanguage || "en";
 
-    // Fetch all letters sorted by A→Z equivalent order
-    const letters = await Letters.find().sort({ position: 1 }).lean();
+    // Get letters sorted correctly
+    const allLetters = await Letters.find().sort({ position: 1 }).lean();
 
-    const formatted = {
+    // Only return letters in user's native language
+    const letters = allLetters
+      .map((l) => ({
+        id: l._id,
+        value: l[nativeLang] || ""
+      }))
+      .filter((item) => item.value && item.value.trim() !== "");
+
+    // Build final response object (NO 'formatted' wrapper)
+    const result = {
       _id: subTopic._id,
       question: subTopic.question?.[userLang] || subTopic.question?.en,
       fullWord: subTopic.fullWord?.[userLang] || subTopic.fullWord?.en,
@@ -159,18 +167,17 @@ export const getSubTopicById = async (req, res) => {
               subTopic.topicId.description?.en,
             imageUrl: subTopic.topicId.imageUrl
           }
-        : null
+        : null,
+      letters
     };
 
-    res.status(200).json({
-      subTopic: formatted,
-      letters // sorted A→Z by position
-    });
+    res.status(200).json(result);
 
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 export const updateSubTopic = async (req, res) => {
