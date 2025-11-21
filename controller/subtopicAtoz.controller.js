@@ -17,21 +17,43 @@ export const createSubTopic = async (req, res) => {
   try {
     const { topicId } = req.body;
 
+    // Topic validation
     const topicExists = await Topic.findById(topicId);
     if (!topicExists)
       return res.status(404).json({ message: "Topic not found" });
 
     const question = safeParse(req.body.question, {});
-    const correctAnswers = safeParse(req.body.correctAnswers, {}); // stores LETTER TEXT
+    const correctAnswersText = safeParse(req.body.correctAnswers, {}); // comes as text
     const fullWord = safeParse(req.body.fullWord, {});
     const hint = safeParse(req.body.hint, {});
 
     const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : "";
 
+    // --- Convert Text → Letter ID for each language ---
+    const correctAnswers = {};
+
+    for (const lang of Object.keys(correctAnswersText)) {
+      const letterText = correctAnswersText[lang];
+
+      if (!letterText || !letterText.trim()) {
+        correctAnswers[lang] = null;
+        continue;
+      }
+
+      // Find matching letter
+      const letterDoc = await Letters.findOne({ [lang]: letterText }).lean();
+
+      if (letterDoc) {
+        correctAnswers[lang] = letterDoc._id; // store ID
+      } else {
+        correctAnswers[lang] = null; // or throw error
+      }
+    }
+
     const subTopic = new SubTopicAtoZ({
       topicId,
       question,
-      correctAnswers,   // ← Stores letter TEXT like "P", "പി"
+      correctAnswers, // now contains IDs
       fullWord,
       hint,
       imageUrl
@@ -67,11 +89,13 @@ export const getAllSubTopics = async (req, res) => {
     // Fetch all letters sorted
     const allLetters = await Letters.find().sort({ position: 1 }).lean();
 
-    // Native-only letters list
-    const nativeLetters = allLetters
+    console.log(nativeLang);
+    
+
+    const preferredLang = allLetters
       .map((l) => ({
         id: l._id,
-        value: l[nativeLang] || ""
+        value: l[userLang] || ""
       }))
       .filter((item) => item.value && item.value.trim() !== "");
 
@@ -92,7 +116,7 @@ export const getAllSubTopics = async (req, res) => {
             imageUrl: s.topicId.imageUrl
           }
         : null,
-      letters: nativeLetters
+      letters: preferredLang
     }));
 
     res.status(200).json(result);
@@ -146,7 +170,7 @@ export const getSubTopicById = async (req, res) => {
     const letters = allLetters
       .map((l) => ({
         id: l._id,
-        value: l[nativeLang] || ""
+        value: l[userLang] || ""
       }))
       .filter((item) => item.value && item.value.trim() !== "");
 
@@ -216,9 +240,6 @@ export const updateSubTopic = async (req, res) => {
 };
 
 
-/* ============================================================
-   DELETE SUBTOPIC
-============================================================ */
 export const deleteSubTopic = async (req, res) => {
   try {
     const deleted = await SubTopicAtoZ.findByIdAndDelete(req.params.id);
@@ -234,9 +255,6 @@ export const deleteSubTopic = async (req, res) => {
 };
 
 
-/* ============================================================
-   ANSWER SUBTOPIC USING LETTER ID
-============================================================ */
 export const answerSubTopic = async (req, res) => {
   try {
     const { id } = req.params;
@@ -249,24 +267,24 @@ export const answerSubTopic = async (req, res) => {
       return res.status(404).json({ message: "Subtopic not found" });
     }
 
-    const correctText = subTopic.correctAnswers[userLang] || subTopic.correctAnswers.en;
+    // Correct answer ID for this language
+    const correctLetterId = subTopic.correctAnswers[userLang] || subTopic.correctAnswers.en;
 
-    if (!correctText) {
-      return res.status(400).json({ message: "Correct answer text missing" });
+    if (!correctLetterId) {
+      return res.status(400).json({ message: "Correct answer ID missing" });
     }
 
-    // Find matching letter from DB
-    const correctLetter = await Letters.findOne({
-      [userLang]: correctText
-    });
+    // Fetch correct letter document
+    const correctLetter = await Letters.findById(correctLetterId).lean();
 
     if (!correctLetter) {
       return res.status(400).json({ message: "Correct letter not found in DB" });
     }
 
-    const isCorrect = correctLetter._id.toString() === selectedLetterId;
+    // Compare IDs
+    const isCorrect = selectedLetterId === correctLetterId.toString();
 
-    // Save performance if you use Performance DB
+    // Save performance
     await Performance.create({
       user: userId,
       moduleType: "atoz",
@@ -275,7 +293,7 @@ export const answerSubTopic = async (req, res) => {
       total: 1,
       accuracy: isCorrect ? 100 : 0,
       userAnswer: { selectedLetterId },
-      correctAnswer: { correctLetterId: correctLetter._id },
+      correctAnswer: { correctLetterId },
       isCorrect,
       timeTaken: req.body.timeTaken || 0
     });
@@ -283,12 +301,12 @@ export const answerSubTopic = async (req, res) => {
     res.status(200).json({
       subTopicId: id,
       selectedLetterId,
-      correctLetterId: correctLetter._id,
-      correctValue: correctText,
+      correctLetterId,
+      correctValue: correctLetter[userLang] || correctLetter.en,
       isCorrect,
       message: isCorrect
         ? "Correct!"
-        : `Incorrect. Correct letter is "${correctText}".`
+        : `Incorrect. Correct letter is "${correctLetter[userLang] || correctLetter.en}".`
     });
 
   } catch (err) {
@@ -296,4 +314,5 @@ export const answerSubTopic = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
