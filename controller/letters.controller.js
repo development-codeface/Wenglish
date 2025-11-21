@@ -81,39 +81,44 @@ export const getAllLetters = async (req, res) => {
 
 export const generateAllLetters = async (req, res) => {
   try {
-    // Alphabet definitions above...
     const languages = Object.keys(ALPHABETS);
 
-    // Get max alphabet length across languages
+    // longest alphabet among all languages
     const maxLength = Math.max(
       ...languages.map(lang => ALPHABETS[lang].length)
     );
 
-    const letterRows = [];
+    const rows = [];
 
     for (let i = 0; i < maxLength; i++) {
-      const row = { _id: uuid() };
+      const row = {
+        _id: uuid(),
+        position: i + 1  // alphabet order
+      };
 
       languages.forEach(lang => {
-        row[lang] = ALPHABETS[lang][i] || ""; // fill empty for shorter alphabets
+        row[lang] = ALPHABETS[lang][i] || ""; // fill empty
       });
 
-      letterRows.push(row);
+      rows.push(row);
     }
 
-    // Clear old
+    // wipe old data
     await Letters.deleteMany({});
 
-    // Insert new
-    await Letters.insertMany(letterRows);
+    // insert new aligned data
+    await Letters.insertMany(rows);
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "All multilingual letters generated successfully",
-      count: letterRows.length
+      message: "All multilingual letters generated automatically",
+      count: rows.length,
+      sample: rows.slice(0, 5)
     });
+
   } catch (error) {
     console.error("Generate letters error:", error);
     res.status(500).json({ message: error.message });
   }
 };
+
