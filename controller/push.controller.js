@@ -80,21 +80,41 @@ export const testPush = async (req, res) => {
 
 export const pushToUser = async (req, res) => {
   try {
-    const { userIds, title, body } = req.body;
+    let { userIds, title, body } = req.body;
 
-    // ⭐ support image upload
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+  
+    if (req.body["userIds[]"]) {
+      userIds = req.body["userIds[]"];
+    }
 
-    if (!Array.isArray(userIds) || userIds.length === 0) {
+    // Convert single string → array
+    if (typeof userIds === "string") {
+      userIds = [userIds];
+    }
+
+    // Multer may convert it to undefined
+    if (!Array.isArray(userIds)) {
+      userIds = [];
+    }
+
+    if (userIds.length === 0) {
       return res.status(400).json({ message: "userIds must be a non-empty array" });
     }
+
 
     if (!title || !body) {
       return res.status(400).json({ message: "title and body are required" });
     }
 
+
+    let imageUrl = null;
+    if (req.file) {
+      imageUrl = `/uploads/images/${req.file.filename}`;  // folder matches upload.Instance.js config
+    }
+
     const finalResults = [];
     const successfulPushes = [];
+
 
     for (const userId of userIds) {
       const tokens = await FCMToken.find({ user: userId });
@@ -131,15 +151,15 @@ export const pushToUser = async (req, res) => {
         if (status === "success") perUserSuccess.push(entry);
       }
 
-      // ⭐ Save push log only if at least one token succeeded
+      // Save only if at least one success for this user
       if (perUserSuccess.length > 0) {
         successfulPushes.push({
           user: userId,
           title,
           body,
           imageUrl,
-          sentToAll: false,
-          tokensUsed: perUserSuccess
+          tokensUsed: perUserSuccess,
+          sentToAll: false
         });
       }
 
@@ -150,34 +170,36 @@ export const pushToUser = async (req, res) => {
       });
     }
 
-    // ⭐ Save all successful push logs together
+
     if (successfulPushes.length > 0) {
       await PushNotification.insertMany(successfulPushes);
     }
 
-    res.json({
+    return res.json({
       success: true,
       totalUsersProcessed: userIds.length,
-      imageUploaded: !!imageUrl,
+      savedRecords: successfulPushes.length,
       finalResults
     });
 
   } catch (err) {
     console.error("pushToUsers error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
 export const pushToAllUsers = async (req, res) => {
   try {
     const { title, body } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     if (!title || !body) {
       return res.status(400).json({ message: "title and body required" });
     }
+
+    const imageUrl = req.file ? `uploads/images/${req.file.filename}` : null;
 
     const tokens = await FCMToken.find();
     if (!tokens.length) {
@@ -197,18 +219,10 @@ export const pushToAllUsers = async (req, res) => {
 
       const status = resp?.success ? "success" : "failed";
 
-      const entry = {
-        user: t.user,
-        token: t.token,
-        status,
-        response: resp
-      };
+      const entry = { user: t.user, token: t.token, status, response: resp };
 
       results.push(entry);
-
-      if (status === "success") {
-        successOnly.push(entry);
-      }
+      if (status === "success") successOnly.push(entry);
     }
 
     if (successOnly.length > 0) {
@@ -226,8 +240,7 @@ export const pushToAllUsers = async (req, res) => {
       success: true,
       sentTo: tokens.length,
       saved: successOnly.length > 0,
-      imageUrl,
-      results
+      results,
     });
 
   } catch (err) {
@@ -235,6 +248,7 @@ export const pushToAllUsers = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
