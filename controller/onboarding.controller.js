@@ -253,30 +253,45 @@ export const getUserAnswers = async (req, res) => {
   try {
     const userLang = req.user?.languagePreference || "en";
 
-    const answers = await UserAnswer.find({ userId: req.user.id }).populate(
-      "questionId"
-    );
+    // FIX: Get correct userId
+    const userId = req.user?._id || req.user?.id;
+
+    console.log("Using user ID:", userId);
+
+    // Query with correct userId
+    const answers = await UserAnswer.find({ userId })
+      .populate("questionId");
+
+    console.log("Fetched answers:", answers);
+
+    if (!answers.length) {
+      console.log("No answers found for user:", userId);
+    }
 
     const formatted = answers.map((a) => ({
       _id: a._id,
       questionId: a.questionId?._id,
       questionText:
-        a.questionId?.questionText[userLang] ||
-        a.questionId?.questionText.en,
+        a.questionId?.questionText?.[userLang] ||
+        a.questionId?.questionText?.en ||
+        "No question text",
       icon: a.questionId?.icon,
       answers: a.answers,
     }));
 
-    res.status(200).json({
+    return res.status(200).json({
       status: true,
       message: "User answers fetched successfully",
       answers: formatted,
     });
+
   } catch (error) {
     console.error("Error fetching answers:", error);
     res.status(500).json({ message: error.message });
   }
 };
+
+
 
 export const getAllQuestionsAllLanguages = async (req, res) => {
   try {
@@ -311,3 +326,51 @@ export const getAllQuestionsAllLanguages = async (req, res) => {
   }
 };
 
+export const getUserQuestionAnswers = async (req, res) => {
+  try {
+    console.log("Controller hit");
+
+    const userId = req.params.id;
+    console.log("Requested user ID:", userId);
+
+    const answers = await UserAnswer.find({ userId })
+      .populate({
+        path: "questionId",
+        populate: {
+          path: "options",          // if your Question model has options
+          model: "QuestionOption",
+        }
+      })
+      .lean();
+
+    console.log("Fetched answers:", answers);
+
+    if (!answers.length) {
+      return res.status(200).json({
+        status: true,
+        message: "No answers found",
+        answers: [],
+      });
+    }
+
+    const formatted = answers.map((a) => ({
+      _id: a._id,
+      questionId: a.questionId?._id,
+      questionText: a.questionId?.questionText || {},
+      icon: a.questionId?.icon || null,
+      answers: a.answers || [],
+      fullQuestion: a.questionId,
+      createdAt: a.createdAt,
+    }));
+
+    return res.status(200).json({
+      status: true,
+      message: "User answers fetched",
+      answers: formatted,
+    });
+
+  } catch (err) {
+    console.error("Error fetching answers:", err);
+    return res.status(500).json({ message: err.message });
+  }
+};
