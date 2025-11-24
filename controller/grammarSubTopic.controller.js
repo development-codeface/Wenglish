@@ -25,8 +25,10 @@ export const createGrammarSubtopic = async (req, res) => {
 
 export const getGrammarSubtopics = async (req, res) => {
   try {
-    const userLang = req.user?.nativeLanguage || "en";
+    const userLang = req.user?.nativeLanguage || "ml";
     const { topicId } = req.query;
+    console.log(userLang);
+    
 
     const filter = topicId ? { topicId } : {};
     const subtopics = await GrammarSubtopic.find(filter).sort({ createdAt: -1 });
