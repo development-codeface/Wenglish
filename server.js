@@ -31,6 +31,7 @@ import "./cron/dailyCheck.js";
 import pushNotification from './routes/pushNotification.routes.js';
 import letters from './routes/letters.routes.js';
 import langQuestions from './routes/languageQuestions.routes.js';
+import pushMessages from './routes/pushMessage.routes.js';
 
 dotenv.config();
 connectDB();
@@ -75,6 +76,8 @@ app.use("/api/push", pushMessage);
 app.use("/api/language-questions", langQuestions);
 app.use("/api/push-notifications", pushNotification);
 app.use("/api/letters", letters);
+app.use("/api/push-messages", pushMessages);
+
 const server = http.createServer(app);
 
 initChatSocket(server);

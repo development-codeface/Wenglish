@@ -1,15 +1,36 @@
+// cron/inactivityCron.js
 import cron from "node-cron";
 import User from "../models/user.model.js";
 import FCMToken from "../models/fcmToken.model.js";
+import PushMessage from "../models/pushMessage.model.js";
 import { sendPushNotification } from "../utils/push.js";
+
+// Helper to pick localized text
+const getLocalized = (translations, lang) => {
+  if (!translations) return "";
+  return translations[lang] || translations["en"] || "";
+};
 
 // Runs every day at 9 PM IST
 cron.schedule(
   "0 21 * * *",
   async () => {
     try {
-      const users = await User.find();
       const now = Date.now();
+      const users = await User.find();
+
+      // Fetch one random active message
+      const randomMessage = await PushMessage.aggregate([
+        { $match: { isActive: true, type: "inactivity" } },
+        { $sample: { size: 1 } }
+      ]);
+
+      const fallbackMsg = {
+        title: { en: "We miss you! 👋" },
+        body: { en: "Come back and keep learning today." }
+      };
+
+      const dbMsg = randomMessage[0] || fallbackMsg;
 
       const successUsers = new Set();
       const failedUsers = new Set();
@@ -20,8 +41,13 @@ cron.schedule(
         const lastActiveTime = new Date(user.lastActive).getTime();
         const diffMinutes = (now - lastActiveTime) / 1000 / 60;
 
-        // If user was active within last 24 hours, skip
         if (diffMinutes < 24 * 60) continue;
+
+        const userLang = user.nativeLanguage || "en";
+
+        // Pick correct language version of title/body
+        const title = getLocalized(dbMsg.title, userLang);
+        const body = getLocalized(dbMsg.body, userLang);
 
         const tokens = await FCMToken.find({ user: user._id });
         if (!tokens.length) {
@@ -32,24 +58,24 @@ cron.schedule(
         let delivered = false;
 
         for (const t of tokens) {
-          const result = await sendPushNotification(
-            t.token,
-            "We miss you! 👋",
-            "Come back and keep learning today."
-          );
+          try {
+            const result = await sendPushNotification(
+              t.token,
+              title,
+              body,
+              dbMsg.imageUrl // optional if your FCM supports image
+            );
 
-          if (result.success) {
-            delivered = true;
-            break;
-          }
+            if (result?.success) {
+              delivered = true;
+              break;
+            }
+          } catch {}
         }
 
         if (delivered) successUsers.add(user.email);
         else failedUsers.add(user.email);
       }
-
-      // No logs — silent operation in production
-      // But you still have successUsers and failedUsers if needed internally
 
     } catch (err) {
       console.error("Inactivity cron error:", err.message);
@@ -57,6 +83,6 @@ cron.schedule(
   },
   {
     scheduled: true,
-    timezone: "Asia/Kolkata", // IST timezone
+    timezone: "Asia/Kolkata",
   }
 );
