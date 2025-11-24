@@ -25,27 +25,40 @@ export const createGrammarSubtopic = async (req, res) => {
 
 export const getGrammarSubtopics = async (req, res) => {
   try {
-    const userLang = req.user?.nativeLanguage || "ml";
-    const { topicId } = req.query;
-    console.log(userLang);
-    
+    const nativeLang = req.user?.nativeLanguage || "en";
+    const preferredLang = req.user?.preferredLanguage || "en";
 
+    const { topicId } = req.query;
     const filter = topicId ? { topicId } : {};
+
     const subtopics = await GrammarSubtopic.find(filter).sort({ createdAt: -1 });
 
-    const localized = subtopics.map(s => ({
+    const localized = subtopics.map((s) => ({
       _id: s._id,
-      title: s.title[userLang] || s.title.en,
-      description: s.description[userLang] || s.description.en,
+
+      title: {
+        native: s.title[nativeLang] || s.title.en,
+        preferred: s.title[preferredLang] || s.title.en
+      },
+
+      description: {
+        native: s.description[nativeLang] || s.description.en,
+        preferred: s.description[preferredLang] || s.description.en
+      },
+
       imageUrl: s.imageUrl,
       createdAt: s.createdAt
     }));
 
     res.status(200).json(localized);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+
 
 export const deleteGrammarSubtopic = async (req, res) => {
   try {
