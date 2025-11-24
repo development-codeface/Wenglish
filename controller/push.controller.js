@@ -201,13 +201,13 @@ export const pushToAllUsers = async (req, res) => {
 
     const imageUrl = req.file ? `uploads/images/${req.file.filename}` : null;
 
-    const tokens = await FCMToken.find();
+    const tokens = await FCMToken.find().populate("user");
+
     if (!tokens.length) {
       return res.status(404).json({ message: "No FCM tokens found" });
     }
 
     const results = [];
-    const successOnly = [];
 
     for (const t of tokens) {
       const resp = await sendPushNotification(
@@ -219,28 +219,31 @@ export const pushToAllUsers = async (req, res) => {
 
       const status = resp?.success ? "success" : "failed";
 
-      const entry = { user: t.user, token: t.token, status, response: resp };
+      const entry = {
+        user: t.user ? t.user._id : null,
+        token: t.token,
+        status,
+        response: resp
+      };
 
       results.push(entry);
-      if (status === "success") successOnly.push(entry);
-    }
 
-    if (successOnly.length > 0) {
+      // Save one record per user/token
       await PushNotification.create({
-        user: null,
+        user: t.user ? t.user._id : null,   // this is the critical part
         title,
         body,
         imageUrl,
         sentToAll: true,
-        tokensUsed: successOnly
+        tokensUsed: [entry] // store only this user's result
       });
     }
 
     return res.json({
       success: true,
       sentTo: tokens.length,
-      saved: successOnly.length > 0,
-      results,
+      saved: true,
+      results
     });
 
   } catch (err) {
@@ -248,6 +251,7 @@ export const pushToAllUsers = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
