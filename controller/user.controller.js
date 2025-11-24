@@ -10,6 +10,7 @@ import bcrypt from "bcrypt";
 import { sendEmail } from "../utils/mailer.js";
 
 
+
 export const completePaymentAndSubscribe = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -230,17 +231,46 @@ export const deleteUser = async (req, res) => {
 
 export const getUserById = async (req, res) => {
   try {
-    const userId = req.params.id; 
+    const userId = req.params.id;
 
-    const user = await User.findById(userId).select("-password"); 
-
+    // Fetch user
+    const user = await User.findById(userId).select("-password");
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "User not found", status: false });
     }
 
-    res.status(200).json({ user , status:"true"});
+    // Fetch onboarding answers and populate question + options
+    const onboardingAnswers = await UserAnswer.find({ userId })
+      .populate({
+        path: "questionId",
+        model: "Question",
+        populate: {
+          path: "options", // if your Question model uses options[]
+          model: "QuestionOption"
+        }
+      })
+      .lean();
+
+    // Format answers
+    const formattedAnswers = onboardingAnswers.map((ans) => ({
+      _id: ans._id,
+      questionId: ans.questionId?._id,
+      questionText: ans.questionId?.questionText || {},
+      icon: ans.questionId?.icon || null,
+      options: ans.questionId?.options || [],
+      userSelected: ans.answers || [],
+      createdAt: ans.createdAt,
+    }));
+
+    return res.status(200).json({
+      status: true,
+      user,
+      onboardingAnswers: formattedAnswers,
+    });
+
   } catch (err) {
-    res.status(500).json({ message: err.message, status:"false" });
+    console.error("Get user detail error:", err);
+    return res.status(500).json({ message: err.message, status: false });
   }
 };
 
