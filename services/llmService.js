@@ -4,6 +4,7 @@ import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages
 import User from "../models/user.model.js";
 import GrammarSubtopic from "../models/grammerSubTopic.model.js";
 import GrammarChatHistory from "../models/grammerChatHistory.model.js";
+import GeneralChatHistory from "../models/generalChat.model.js";
 
 
 
@@ -341,6 +342,117 @@ function fixJSON(raw) {
 
   return null; // still invalid
 }
+
+async function generateFriendlyMessage(nativeLang, prompt) {
+  const system = new SystemMessage(`
+You are a warm, kind, supportive friend.
+Always reply ONLY in the user's native language: ${nativeLang}.
+Tone must be friendly, respectful, gentle, and natural.
+Do NOT use romantic or intimate words.
+No emojis.
+Never mention that you are an AI.
+Keep responses short, thoughtful, and human-like.
+`);
+  const user = new HumanMessage(prompt);
+  const result = await model.invoke([system, user]);
+  return result.content;
+}
+
+export const getGeneralChatResponse = async (userId, userInput) => {
+  try {
+    const user = await User.findById(userId);
+    const nativeLang = user?.nativeLanguage || "en";
+
+    let chat = await GeneralChatHistory.findOne({ user: userId });
+
+    if (!chat) {
+      chat = await GeneralChatHistory.create({
+        user: userId,
+        stage: "start",
+        history: []
+      });
+    }
+
+    const stage = chat.stage;
+    let reply = "";
+
+    if (stage === "start") {
+      reply = await generateFriendlyMessage(
+        nativeLang,
+        "Greet the user in a friendly, respectful tone and ask how their day was."
+      );
+      chat.stage = "asked_day";
+      await chat.save();
+      return reply;
+    }
+
+    if (stage === "asked_day") {
+      reply = await generateFriendlyMessage(
+        nativeLang,
+        `The user said "${userInput}". Acknowledge it kindly and then ask what they want to know or talk about.`
+      );
+
+      chat.stage = "asked_interest";
+
+      chat.history.push({
+        userMessage: userInput,
+        aiMessage: reply
+      });
+
+      await chat.save();
+      return reply;
+    }
+
+    if (stage === "asked_interest") {
+      reply = await generateFriendlyMessage(
+        nativeLang,
+        `The user said "${userInput}". Respond supportively and tell them you are ready to chat and help.`
+      );
+
+      chat.stage = "general";
+
+      chat.history.push({
+        userMessage: userInput,
+        aiMessage: reply
+      });
+
+      await chat.save();
+      return reply;
+    }
+
+    chat.history.push({ userMessage: userInput });
+
+    const messages = [
+      new SystemMessage(`
+You are a warm, kind, supportive friend.
+Always reply in the user's native language: ${nativeLang}.
+Tone must be friendly, respectful, gentle, and natural.
+No romantic words.
+No emojis.
+Never mention that you are an AI.
+Keep responses short, caring, and human-like.
+`)
+    ];
+
+    chat.history.forEach(entry => {
+      if (entry.userMessage) messages.push(new HumanMessage(entry.userMessage));
+      if (entry.aiMessage) messages.push(new AIMessage(entry.aiMessage));
+    });
+
+    const llmResponse = await model.invoke(messages);
+    reply = llmResponse.content;
+
+    chat.history[chat.history.length - 1].aiMessage = reply;
+
+    await chat.save();
+
+    return reply;
+
+  } catch (err) {
+    console.error("General Chat Error:", err);
+    return "Something went wrong.";
+  }
+};
 
 
 
