@@ -32,6 +32,7 @@ import pushNotification from './routes/pushNotification.routes.js';
 import letters from './routes/letters.routes.js';
 import langQuestions from './routes/languageQuestions.routes.js';
 import pushMessages from './routes/pushMessage.routes.js';
+import generalChat from './routes/generalChat.routes.js';
 
 dotenv.config();
 connectDB();
@@ -77,6 +78,7 @@ app.use("/api/language-questions", langQuestions);
 app.use("/api/push-notifications", pushNotification);
 app.use("/api/letters", letters);
 app.use("/api/push-messages", pushMessages);
+app.use("/api/general-chat", generalChat);
 
 const server = http.createServer(app);
 
