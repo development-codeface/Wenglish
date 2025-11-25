@@ -456,5 +456,74 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ status: false, message: err.message });
   }
 };
+export const deactivateUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { active: false },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "User deactivated successfully",
+      user
+    });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+export const activateUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { active: true },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "User activated successfully",
+      user
+    });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+export const checkActiveStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select("active");
+
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found"
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      active: user.active
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      status: false,
+      message: err.message
+    });
+  }
+};
 
 

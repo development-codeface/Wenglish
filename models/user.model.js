@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema(
     usageHistory: [{ type: Date }],
     isOnboardingComplete: { type: Boolean, default: false }, 
     fcmToken: { type: String },
+    active: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
