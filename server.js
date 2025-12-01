@@ -33,6 +33,7 @@ import letters from './routes/letters.routes.js';
 import langQuestions from './routes/languageQuestions.routes.js';
 import pushMessages from './routes/pushMessage.routes.js';
 import generalChat from './routes/generalChat.routes.js';
+import nativeLanguage from './routes/nativeLang.routes.js';
 
 dotenv.config();
 connectDB();
@@ -72,7 +73,7 @@ app.use("/api/grammar-subtopics", grammerSubTopic);
 app.use("/api/user-performance", userPerfomance);
 app.use("/api/languages", languages);
 app.use("/api/payments", payments);
-app.use("/api/native-languages", languages);
+app.use("/api/native-languages", nativeLanguage);
 app.use("/api/push", pushMessage);
 app.use("/api/language-questions", langQuestions);
 app.use("/api/push-notifications", pushNotification);
