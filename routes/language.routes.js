@@ -6,6 +6,7 @@ import {
   getLanguageById,
   updateLanguage,
   deleteLanguage,
+  getLanguagesExceptEnglish
 } from "../controller/language.controller.js";
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.post("/", createLanguage);
 
 // GET
 router.get("/", getLanguages);
+router.get("/except-english", getLanguagesExceptEnglish);
 router.get("/active", getActiveLanguages);
 router.get("/:id", getLanguageById);
 

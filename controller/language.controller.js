@@ -100,3 +100,17 @@ export const deleteLanguage = async (req, res) => {
   }
 };
 
+export const getLanguagesExceptEnglish = async (req, res) => {
+  try {
+    // Exclude English (case-insensitive if your DB isn't uniform)
+    const languages = await Language.find({
+      name: { $ne: "English" }
+    }).sort("name");
+
+    return res.status(200).json({ languages });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+
