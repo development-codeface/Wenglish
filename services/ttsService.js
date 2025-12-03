@@ -1,9 +1,7 @@
-// ttsService.js
 import textToSpeech from "@google-cloud/text-to-speech";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Fix for ES modules (__dirname doesn't exist)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
