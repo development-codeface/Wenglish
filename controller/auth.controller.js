@@ -109,7 +109,6 @@ export const loginUser = async (req, res) => {
       token: fcmToken
     });
   } else {
-    // Update user assignment (helps during re-login after reinstall)
     exists.user = user._id;
     exists.lastUsedAt = new Date();
     await exists.save();

@@ -3,7 +3,7 @@ import { getCategoryChatResponse } from "../services/llmService.js";
 import ChatHistory from "../models/chatHistory.model.js";
 import mongoose from "mongoose";
 
-// Create a new chat category (supports multilingual fields)
+// Create a new chat category 
 export const createCategory = async (req, res) => {
   try {
     let { title, description } = req.body;
