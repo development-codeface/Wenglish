@@ -328,21 +328,35 @@ export const updateLesson = async (req, res) => {
 //  Delete Lesson
 export const deleteLesson = async (req, res) => {
   try {
-    const { lessonId } = req.params;
-    const lesson = await Lesson.findById(lessonId);
-    if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+    const { id } = req.params;
 
-    const removeFile = (file) => {
-      if (file && !file.startsWith("http") && fs.existsSync(file)) fs.unlinkSync(file);
-    };
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid lesson ID",
+      });
+    }
 
-    removeFile(lesson.videoUrl);
-    removeFile(lesson.thumbnail);
+    const lesson = await Lesson.findById(id);
+    if (!lesson) {
+      return res.status(404).json({
+        status: false,
+        message: "Lesson not found",
+      });
+    }
 
-    await lesson.deleteOne();
-    res.json({ status: true, message: "Lesson deleted" });
+    await Lesson.findByIdAndDelete(id);
+
+    return res.json({
+      status: true,
+      message: "Lesson deleted successfully",
+    });
 
   } catch (err) {
-    res.status(500).json({ status: false, message: err.message });
+    return res.status(500).json({
+      status: false,
+      message: err.message,
+    });
   }
 };
+
