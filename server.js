@@ -34,6 +34,7 @@ import langQuestions from './routes/languageQuestions.routes.js';
 import pushMessages from './routes/pushMessage.routes.js';
 import generalChat from './routes/generalChat.routes.js';
 import nativeLanguage from './routes/nativeLang.routes.js';
+import pronounciation from './routes/pronounciation.routes.js';
 
 dotenv.config();
 connectDB();
@@ -44,7 +45,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cors({
-  origin: ['http://localhost:5173'], 
+  origin: "*",  
   credentials: true,
 }));
 
@@ -80,8 +81,10 @@ app.use("/api/push-notifications", pushNotification);
 app.use("/api/letters", letters);
 app.use("/api/push-messages", pushMessages);
 app.use("/api/general-chat", generalChat);
+app.use("/api/pronunciation", pronounciation);
 
 const server = http.createServer(app);
+app.use(express.static("public"));
 
 initChatSocket(server);
 
