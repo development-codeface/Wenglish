@@ -454,6 +454,48 @@ Keep responses short, caring, and human-like.
   }
 };
 
+export const evaluatePronunciation = async ({
+  transcript,
+  learningLang,
+  nativeLang
+}) => {
+  const systemPrompt = `
+You are a pronunciation evaluator for language learners.
+
+The user spoke the following sentence:
+"${transcript}"
+
+TASK:
+Evaluate pronunciation quality based on the transcript.
+Assume the user tried to speak in ${learningLang}.
+
+RULES:
+1. Give feedback in TWO languages:
+   - replyLearning → ${learningLang}
+   - replyNative → ${nativeLang}
+2. Be encouraging but honest.
+3. Focus only on pronunciation and clarity.
+4. No emojis. No greetings.
+5. Keep feedback short and practical.
+6. Output ONLY valid JSON.
+
+FORMAT:
+{
+  "score": number from 1 to 5,
+  "replyLearning": "feedback in ${learningLang}",
+  "replyNative": "feedback in ${nativeLang}"
+}
+`;
+
+  const result = await model.invoke([
+    new SystemMessage(systemPrompt),
+    new HumanMessage("Evaluate the pronunciation.")
+  ]);
+
+  return fixJSON(result.content);
+};
+
+
 
 
 
