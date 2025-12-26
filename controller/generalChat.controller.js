@@ -1,5 +1,7 @@
 import { getGeneralChatResponse } from "../services/llmService.js";
 import GeneralChatHistory from "../models/generalChat.model.js";
+import fs from "fs";
+import { transcribeAudio } from "../services/sst.Service.js";
 
 export const generalChat = async (req, res) => {
   try {
@@ -87,4 +89,53 @@ export const resetGeneralChat = async (req, res) => {
   }
 };
 
+export const generalChatVoice = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const language = req.user?.languagePreference || "en";
 
+    console.log(language);
+
+    /* ---------- VALIDATION ---------- */
+    if (!req.file) {
+      return res.status(400).json({ message: "Audio file required" });
+    }
+
+    const filePath = req.file.path;
+
+    /* ---------- SPEECH → TEXT (multilanguage) ---------- */
+    const transcript = await transcribeAudio(filePath, language);
+
+    // Delete the audio file after transcription
+    fs.unlink(filePath, (err) => {
+      if (err) console.error("Failed to delete audio file:", err);
+    });
+
+    if (!transcript || !transcript.trim()) {
+      return res.status(422).json({
+        message: "Could not understand audio",
+      });
+    }
+
+    /* ---------- LLM CHAT ---------- */
+    const reply = await getGeneralChatResponse(userId, transcript.trim());
+
+    /* ---------- RESPONSE ---------- */
+    return res.status(200).json({
+      transcript: transcript.trim(),
+      reply,
+    });
+
+  } catch (err) {
+    console.error("Voice Chat Error:", err);
+
+    // Try deleting the file if an error occurred before deletion
+    if (req.file?.path) {
+      fs.unlink(req.file.path, (unlinkErr) => {
+        if (unlinkErr) console.error("Failed to delete audio file:", unlinkErr);
+      });
+    }
+
+    return res.status(500).json({ message: "Server error" });
+  }
+};
