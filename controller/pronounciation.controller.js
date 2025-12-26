@@ -93,14 +93,5 @@ function mapLangToTTSCode(lang) {
   }[lang] || "en-US";
 }
 
-function fallbackFeedback(learningLang, nativeLang) {
-  return {
-    score: 1,
-    replyLearning:
-      "Pronunciation was unclear. Please speak a full word or sentence clearly.",
-    replyNative:
-      nativeLang === "ml"
-        ? "ഉച്ചാരണം വ്യക്തമായിരുന്നില്ല. ഒരു പൂർണ്ണ വാക്ക് അല്ലെങ്കിൽ വാക്യം വ്യക്തമായി പറയുക."
-        : "Pronunciation was unclear. Please try again."
-  };
-}
+
+

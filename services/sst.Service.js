@@ -23,6 +23,7 @@ export async function transcribeAudio(filePath, language = "en") {
       sampleRateHertz: 48000,
       languageCode: mapLang(language),
       enableAutomaticPunctuation: true,
+       model: "latest_long",
     },
   };
 
