@@ -1,7 +1,10 @@
 import fs from "fs";
 import User from "../models/user.model.js";
 import { transcribeAudio } from "../services/sst.Service.js";
-import { evaluatePronunciation } from "../services/llmService.js";
+import {
+  evaluatePronunciation,
+  evaluateUnclearPronunciation
+} from "../services/llmService.js";
 import { synthesizeToBase64 } from "../services/ttsService.js";
 
 /**
@@ -13,9 +16,14 @@ export const checkPronunciation = async (req, res) => {
   try {
     const userId = req.user.id;
     const audioFile = req.file;
+    const targetWord = req.body.word?.trim();
 
     if (!audioFile) {
       return res.status(400).json({ message: "Audio file required" });
+    }
+
+    if (!targetWord) {
+      return res.status(400).json({ message: "Target word is required" });
     }
 
     audioPath = audioFile.path;
@@ -26,40 +34,55 @@ export const checkPronunciation = async (req, res) => {
       req.body.language || user?.languagePreference || "en";
     const nativeLang = user?.nativeLanguage || "en";
 
-    // 1️⃣ Speech → Text (Google STT)
+    // 1️⃣ Speech → Text
     const transcript = await transcribeAudio(audioPath, learningLang);
 
-    // 🔴 Guard: empty or unclear transcript
+    // 2️⃣ If transcript unclear → LLM guidance only
     if (!transcript || transcript.trim().length < 2) {
+      const feedback = await evaluateUnclearPronunciation({
+        targetWord,
+        learningLang,
+        nativeLang
+      });
+
       cleanup(audioPath);
+
       return res.json({
-        transcript: transcript || "",
-        feedback: fallbackFeedback(learningLang, nativeLang),
-        referenceAudio: null
+        targetWord,
+        transcript: "",
+        feedback,
+        referenceAudio: null,
+        status: "success"
       });
     }
 
-    // 2️⃣ Pronunciation Evaluation (LLM)
+    // 3️⃣ Normal pronunciation evaluation
     let feedback = await evaluatePronunciation({
       transcript,
+      targetWord,
       learningLang,
       nativeLang
     });
 
-    // 🔴 Guard: LLM failed / invalid JSON
+    // 4️⃣ If LLM response invalid → fallback to LLM again
     if (!feedback || typeof feedback.score !== "number") {
-      feedback = fallbackFeedback(learningLang, nativeLang);
+      feedback = await evaluateUnclearPronunciation({
+        targetWord,
+        learningLang,
+        nativeLang
+      });
     }
 
-    // 3️⃣ Correct Pronunciation Audio (TTS)
+    // 5️⃣ Correct pronunciation audio (always target word)
     const referenceAudio = await synthesizeToBase64(
-      transcript,
+      targetWord,
       mapLangToTTSCode(learningLang)
     );
 
     cleanup(audioPath);
 
     return res.json({
+      targetWord,
       transcript,
       feedback,
       referenceAudio,
@@ -92,6 +115,3 @@ function mapLangToTTSCode(lang) {
     kn: "kn-IN"
   }[lang] || "en-US";
 }
-
-
-

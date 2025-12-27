@@ -456,46 +456,112 @@ Keep responses short, caring, and human-like.
 
 export const evaluatePronunciation = async ({
   transcript,
+  targetWord,
   learningLang,
   nativeLang
 }) => {
   const systemPrompt = `
-You are a pronunciation evaluator for language learners.
+You are a pronunciation coach for language learners.
 
-The user spoke:
-"${transcript}"
+TARGET WORD:
+"${targetWord}"
+
+NOTE:
+The learner's spoken audio has already been analyzed internally.
+Do NOT mention or repeat what the learner said.
 
 TASK:
-Evaluate pronunciation quality.
+Explain how to correctly pronounce the target word and what the learner should improve.
+
+GUIDELINES:
+- Focus ONLY on the target word.
+- Explain mouth shape, sounds, stress, or syllables if helpful.
+- Do NOT reference the learner's spoken sentence or transcript.
+- Be constructive and encouraging.
+- Be concise and practical.
 
 ASSUMPTIONS:
-- The learner is practicing: ${learningLang}
-- The learner's native language: ${nativeLang}
+- Learning language: ${learningLang}
+- Native language: ${nativeLang}
 
 RULES:
 1. replyLearning MUST be written in ${learningLang}.
 2. replyNative MUST be written in ${nativeLang}.
-3. Focus ONLY on pronunciation and clarity.
-4. Be brief, practical, and encouraging.
-5. Do NOT include greetings or emojis.
-6. Output ONLY valid JSON.
-7. Score must be an integer from 1 to 5.
+3. No greetings, no emojis.
+4. No mention of what the learner said.
+5. Output ONLY valid JSON.
+6. Score must be an integer from 1 to 5
+   (1 = very poor pronunciation, 5 = excellent pronunciation)
 
 JSON FORMAT (strict):
 {
   "score": 1-5,
-  "replyLearning": "text in ${learningLang}",
-  "replyNative": "text in ${nativeLang}"
+  "replyLearning": "how to improve pronunciation of the target word",
+  "replyNative": "same advice explained in native language"
 }
 `;
 
   const result = await model.invoke([
     new SystemMessage(systemPrompt),
-    new HumanMessage("Evaluate the pronunciation.")
+    new HumanMessage("Evaluate pronunciation.")
   ]);
 
   return fixJSON(result.content);
 };
+
+export const evaluateUnclearPronunciation = async ({
+  targetWord,
+  learningLang,
+  nativeLang
+}) => {
+  const systemPrompt = `
+You are a pronunciation coach for language learners.
+
+TARGET WORD:
+"${targetWord}"
+
+CONTEXT:
+The learner's audio was unclear or too short to evaluate accurately.
+
+TASK:
+Give pronunciation guidance for the target word
+without referencing any learner mistakes.
+
+GUIDELINES:
+- Explain how to pronounce the word correctly.
+- Mention key sounds, syllables, or stress.
+- Be supportive and simple.
+- Do NOT mention technical issues or audio problems.
+
+ASSUMPTIONS:
+- Learning language: ${learningLang}
+- Native language: ${nativeLang}
+
+RULES:
+1. replyLearning MUST be written in ${learningLang}.
+2. replyNative MUST be written in ${nativeLang}.
+3. No greetings or emojis.
+4. Output ONLY valid JSON.
+5. Score must be 1 or 2.
+
+JSON FORMAT:
+{
+  "score": 1-2,
+  "replyLearning": "pronunciation guidance",
+  "replyNative": "same guidance in native language"
+}
+`;
+
+  const result = await model.invoke([
+    new SystemMessage(systemPrompt),
+    new HumanMessage("Provide pronunciation guidance.")
+  ]);
+
+  return fixJSON(result.content);
+};
+
+
+
 
 
 
