@@ -2,6 +2,8 @@ import GrammarSubtopic from "../models/grammerSubTopic.model.js";
 import Topic from "../models/topic.model.js";
 import { getGrammarTutorResponse } from "../services/llmService.js";
 import GrammarChatHistory from "../models/grammerChatHistory.model.js";
+import { transcribeAudio } from "../services/sst.Service.js";
+import fs from "fs";
 
 export const createGrammarSubtopic = async (req, res) => {
   try {
@@ -217,6 +219,110 @@ export const getGrammarChatHistory = async (req, res) => {
     res.status(500).json({ status: false, message: error.message });
   }
 };
+
+export const grammarVoiceChat = async (req, res) => {
+  let audioPath;
+
+  try {
+    const userId = req.user?.id;
+    const audioFile = req.file;
+    const { subtopicId, language } = req.body;
+
+    if (!audioFile || !subtopicId) {
+      return res
+        .status(400)
+        .json({ message: "audio and subtopicId are required" });
+    }
+
+    audioPath = audioFile.path;
+
+    const subtopic = await GrammarSubtopic.findById(subtopicId);
+    if (!subtopic) {
+      cleanup(audioPath);
+      return res.status(404).json({ message: "Subtopic not found" });
+    }
+
+    const subtopicName =
+      subtopic.title?.en ||
+      subtopic.title?.[Object.keys(subtopic.title)[0]] ||
+      "Grammar";
+
+    const learningLang = language || "en";
+
+    // 1️⃣ Speech → Text
+    const message = await transcribeAudio(
+      audioPath,
+      mapLangToSTTCode(learningLang)
+    );
+
+    if (!message || message.trim().length < 2) {
+      cleanup(audioPath);
+      return res.status(200).json({
+        replyLearning:
+          "Please speak clearly so I can help you with grammar.",
+        replyNative:
+          "ദയവായി വ്യക്തമായി സംസാരിക്കുക, അപ്പോൾ വ്യാകരണത്തിൽ സഹായിക്കാനാകും.",
+        stage: "retry",
+        questionNumber: null
+      });
+    }
+
+    // 2️⃣ Tutor response (same logic as text chat)
+    const {
+      replyNative,
+      replyLearning,
+      stage,
+      questionNumber,
+      correctedInput
+    } = await getGrammarTutorResponse(subtopicId, message, userId);
+
+    // 3️⃣ Save chat history
+    await GrammarChatHistory.create({
+      user: userId,
+      subtopicId,
+      subtopicName,
+      stage,
+      questionNumber,
+      userMessage: message,
+      replyNative,
+      replyLearning,
+      correctedInput: correctedInput || null
+    });
+
+    cleanup(audioPath);
+
+    return res.status(200).json({
+      transcript: message,
+      replyNative,
+      replyLearning,
+      stage,
+      questionNumber
+    });
+
+  } catch (error) {
+    console.error("Grammar Voice Chat Error:", error);
+    if (audioPath) cleanup(audioPath);
+
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+/* ------------------ Helpers ------------------ */
+
+function cleanup(filePath) {
+  fs.unlink(filePath, () => {});
+}
+
+function mapLangToSTTCode(lang) {
+  return {
+    en: "en-US",
+    ml: "ml-IN",
+    hi: "hi-IN",
+    ta: "ta-IN",
+    te: "te-IN",
+    kn: "kn-IN"
+  }[lang] || "en-US";
+}
 
 
 
