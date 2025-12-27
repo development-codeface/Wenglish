@@ -8,7 +8,8 @@ import {
   updateGrammarSubtopic,
   grammarChat,
   getGrammarChatHistory,
-} from "../controller/grammarSubtopic.controller.js";
+  grammarVoiceChat,
+} from "../controller/grammarSubTopic.controller.js";
 import { adminMiddleware, authMiddleware } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.put("/:id", upload.single("imageUrl"), updateGrammarSubtopic);
 router.delete("/:id",authMiddleware,adminMiddleware, deleteGrammarSubtopic);
 router.post("/chat", authMiddleware,grammarChat);
 router.get("/chat-history",authMiddleware, getGrammarChatHistory);
+router.post("/voice-chat", authMiddleware,upload.single("audio"), grammarVoiceChat);
 
 
 export default router;
