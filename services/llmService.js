@@ -454,6 +454,59 @@ Keep responses short, caring, and human-like.
   }
 };
 
+export const normalizeUserInput = async (text) => {
+  // 🔒 Guard 1: empty input
+  if (!text || !text.trim()) return text;
+
+  const system = new SystemMessage(`
+You are a language normalizer.
+
+Supported languages:
+- English
+- Malayalam
+- Hindi
+- Tamil
+- Telugu
+- Kannada
+
+Rules:
+- If the text is English written using Malayalam letters, convert it to proper English.
+- If the text is Hindi written using Malayalam letters, convert it to proper Hindi (Devanagari).
+- If the text is Tamil written using Malayalam letters, convert it to proper Tamil.
+- If the text is Telugu written using Malayalam letters, convert it to proper Telugu.
+- If the text is Kannada written using Malayalam letters, convert it to proper Kannada.
+- If the text is already a correct natural language sentence, return it unchanged.
+- If the text is real Malayalam, return it unchanged.
+- If you are unsure, return the original text unchanged.
+- Do NOT translate meaning.
+- Do NOT explain.
+- Output ONLY the normalized text.
+- NEVER return an empty response.
+`);
+
+  try {
+    const user = new HumanMessage(text);
+    const result = await model.invoke([system, user]);
+
+    const normalized = result?.content?.trim();
+
+    // 🔒 Guard 2: LLM returned empty
+    if (!normalized) {
+      console.warn("Normalizer returned empty, falling back:", text);
+      return text;
+    }
+
+    return normalized;
+
+  } catch (err) {
+    // 🔒 Guard 3: LLM failure
+    console.error("Normalizer error, fallback to original text", err);
+    return text;
+  }
+};
+
+
+
 export const evaluatePronunciation = async ({
   transcript,
   targetWord,
@@ -559,6 +612,7 @@ JSON FORMAT:
 
   return fixJSON(result.content);
 };
+
 
 
 
