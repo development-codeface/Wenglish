@@ -27,6 +27,7 @@ export async function transcribeAudio(filePath, language = "en") {
     audio: { content: audioBytes },
     config: {
       encoding: "WEBM_OPUS", 
+      sampleRateHertz: 48000,
       languageCode: primaryLang, // Primary hint
       alternativeLanguageCodes: alternativeLangs, // Auto-detection list
       enableAutomaticPunctuation: true,
@@ -42,37 +43,48 @@ export async function transcribeAudio(filePath, language = "en") {
     .join(" ");
 }
 export async function transcribeAudioAuto(filePath) {
-  const audioBytes = fs.readFileSync(filePath).toString("base64");
+  try {
+    const audioBytes = fs.readFileSync(filePath).toString("base64");
 
-  const request = {
-    audio: { content: audioBytes },
-    config: {
-      encoding: "WEBM_OPUS", 
-      // REMOVE sampleRateHertz to let Google auto-detect the 48000Hz header
-      
-      // 1. SET MALAYALAM AS PRIMARY. This stops the English hallucination.
-      languageCode: "ml-IN", 
-      
-      // 2. SET ENGLISH AS ALTERNATIVE. 
-      // It will still switch back to English letters if you speak clear English.
-      alternativeLanguageCodes: ["en-IN", "en-US", "hi-IN"], 
-      
-      enableAutomaticPunctuation: true,
-      model: "latest_long", 
-    },
-  };
+    const request = {
+      audio: { content: audioBytes },
+      config: {
+        encoding: "WEBM_OPUS",
+        // HARD FIX: Prevents the "sample rate (0)" crash
+        sampleRateHertz: 48000, 
+        
+        // Use ml-IN as primary to catch Malayalam sounds immediately
+        languageCode: "ml-IN", 
+        
+        // Add Hindi and English for auto-switching script
+        alternativeLanguageCodes: ["hi-IN", "en-IN", "en-US"], 
+        
+        enableAutomaticPunctuation: true,
+        // Using 'latest_long' with enhanced mode for better clarity
+        model: "latest_long", 
+        useEnhanced: true, 
+      },
+    };
 
-  const [response] = await client.recognize(request);
+    const [response] = await client.recognize(request);
 
-  if (!response.results || response.results.length === 0) return "";
+    // If no results, log for debugging
+    if (!response.results || response.results.length === 0) {
+      console.error("STT returned no results for file:", filePath);
+      return "";
+    }
 
-  // Log this to see if it finally caught 'ml-IN'
-  console.log(`Detected Lang: ${response.results[0].languageCode}`);
-  console.log(`Transcript: ${response.results[0].alternatives[0].transcript}`);
+    const transcript = response.results
+      .map(r => r.alternatives[0].transcript)
+      .join(" ");
+    
+    console.log(`STT Success: ${transcript}`);
+    return transcript;
 
-  return response.results
-    .map(r => r.alternatives[0].transcript)
-    .join(" ");
+  } catch (error) {
+    console.error("Speech API Error Details:", error.details || error.message);
+    return "";
+  }
 }
 
 function mapLang(lang) {
