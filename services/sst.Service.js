@@ -59,7 +59,6 @@ export async function transcribeAudioAuto(filePath) {
       
       enableAutomaticPunctuation: true,
       model: "latest_long", 
-      useEnhanced: true,
     },
   };
 
