@@ -1,7 +1,7 @@
-import { getGeneralChatResponse } from "../services/llmService.js";
+import { getGeneralChatResponse, normalizeUserInput } from "../services/llmService.js";
 import GeneralChatHistory from "../models/generalChat.model.js";
 import fs from "fs";
-import { transcribeAudio } from "../services/sst.Service.js";
+import { transcribeAudio, transcribeAudioAuto } from "../services/sst.Service.js";
 
 export const generalChat = async (req, res) => {
   try {
@@ -90,26 +90,23 @@ export const resetGeneralChat = async (req, res) => {
 };
 
 export const generalChatVoice = async (req, res) => {
+  let filePath;
+
   try {
     const userId = req.user._id;
-    const language = req.user?.languagePreference || "en";
-
-    console.log(language);
 
     /* ---------- VALIDATION ---------- */
     if (!req.file) {
       return res.status(400).json({ message: "Audio file required" });
     }
 
-    const filePath = req.file.path;
+    filePath = req.file.path;
 
-    /* ---------- SPEECH → TEXT (multilanguage) ---------- */
-    const transcript = await transcribeAudio(filePath, language);
+    /* ---------- SPEECH → TEXT ---------- */
+    const rawTranscript = await transcribeAudioAuto(filePath);
 
-    // Delete the audio file after transcription
-    fs.unlink(filePath, (err) => {
-      if (err) console.error("Failed to delete audio file:", err);
-    });
+    /* ---------- NORMALIZE ---------- */
+    const transcript = await normalizeUserInput(rawTranscript);
 
     if (!transcript || !transcript.trim()) {
       return res.status(422).json({
@@ -128,14 +125,16 @@ export const generalChatVoice = async (req, res) => {
 
   } catch (err) {
     console.error("Voice Chat Error:", err);
+    return res.status(500).json({ message: "Server error" });
 
-    // Try deleting the file if an error occurred before deletion
-    if (req.file?.path) {
-      fs.unlink(req.file.path, (unlinkErr) => {
-        if (unlinkErr) console.error("Failed to delete audio file:", unlinkErr);
+  } finally {
+    // 🔥 ALWAYS delete the audio file
+    if (filePath) {
+      fs.unlink(filePath, (err) => {
+        if (err) console.error("Failed to delete audio file:", err);
       });
     }
-
-    return res.status(500).json({ message: "Server error" });
   }
 };
+
+
