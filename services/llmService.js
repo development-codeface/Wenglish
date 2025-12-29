@@ -13,11 +13,15 @@ const model = new ChatGoogleGenerativeAI({
   temperature: 0,
   maxOutputTokens: 1000,
   apiKey: process.env.GOOGLE_API_KEY,
+  
 });
 
-const conversationHistory = [
-  new SystemMessage("You are a friendly and helpful AI assistant that replies in a conversational tone. Keep answers short and natural and no emojis.")
+export const createConversationHistory = () => [
+  new SystemMessage(`
+You are a friendly and helpful AI assistant that replies in a conversational tone. Keep answers short and natural and no emojis.
+`)
 ];
+
 
 const correctUserInput = async (input, language = "en") => {
   const correctionPrompt = [
@@ -156,47 +160,34 @@ ${cleaned}
 
 
 
-
-
-
-
-
-export const getResponseFromLLM = async (message) => {
-  try {
-    conversationHistory.push(new HumanMessage(message));
-
-    const response = await model.invoke(conversationHistory);
-
-    conversationHistory.push(new HumanMessage(response.content));
-
-    return response.content;
-  } catch (err) {
-    console.error("LLM query error:", err);
-    return "Error generating response";
+export const getResponseFromLLM = async (transcript, conversationHistory) => {
+  if (!transcript?.trim()) {
+    return { correctedTranscript: "", aiReply: "" };
   }
-};
-export const getAlphabetLearningResponse = async (letter) => {
-  try {
-    const prompt = [
-      new SystemMessage(
-        `You are a kind teacher helping kids learn the alphabet.
-When the user gives you a letter, reply only in this format:
-[Letter] for [Word starting with that letter]
 
-Do not add explanations, fun facts, or any other text.
-Keep it simple and suitable for kids.
-`
-      ),
-      new HumanMessage(`Letter: ${letter}`)
-    ];
+  // Save user input
+  conversationHistory.push(new HumanMessage(transcript));
 
-    const response = await model.invoke(prompt);
-    return response.content;
-  } catch (error) {
-    console.error("Error generating alphabet response:", error);
-    return "Sorry, I couldn’t generate the learning content right now.";
+  const response = await model.invoke(conversationHistory);
+
+  const aiReply =
+    response?.content?.trim() || "ഞാൻ കേൾക്കുകയാണ്.";
+
+  // Save assistant reply
+  conversationHistory.push(new AIMessage(aiReply));
+
+  // Keep last 10 turns only
+  if (conversationHistory.length > 20) {
+    conversationHistory.splice(1, conversationHistory.length - 20);
   }
+
+  return {
+    correctedTranscript: transcript,
+    aiReply,
+  };
 };
+
+
 
 
 export const getGrammarTutorResponse = async (subtopicId, userInput, userId) => {

@@ -3,7 +3,7 @@ import http from 'http';
 import dotenv from 'dotenv';
 import connectDB from './dbConfig/database.js';
 import authRoutes from './routes/auth.routes.js';
-import { initChatSocket } from './sockets/websocket.js';
+import { initVoiceChatSocket } from './sockets/websocket.js';
 import lessonRoutes from './routes/lesson.routes.js'
 import chapterRoutes from './routes/chapter.routes.js'
 import history from './routes/chat.routes.js'
@@ -86,7 +86,7 @@ app.use("/api/pronunciation", pronounciation);
 const server = http.createServer(app);
 app.use(express.static("public"));
 
-initChatSocket(server);
+initVoiceChatSocket(server);
 
 server.listen(process.env.PORT || 3000, () => {
   console.log('Server is running on port 3000');

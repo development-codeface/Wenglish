@@ -1,81 +1,96 @@
+// sockets/voiceChatSocket.js
 import { Server } from "socket.io";
-import jwt from "jsonwebtoken";
-import fs from "fs";
 import path from "path";
-import User from "../models/user.model.js";
-import ChatMessage from "../models/chat.model.js";
-import ChatSession from "../models/chatSession.model.js";
-import { getResponseFromLLM } from "../services/llmService.js";
+import speech from "@google-cloud/speech";
+import {
+  createConversationHistory,
+  getResponseFromLLM,
+  normalizeUserInput,
+} from "../services/llmService.js";
 import { synthesizeToBase64 } from "../services/ttsService.js";
 
-export const initChatSocket = (server) => {
-  const io = new Server(server, { cors: { origin: "*" } });
+// Initialize Google STT client
+const client = new speech.SpeechClient({
+  keyFilename: path.join(
+    process.cwd(),
+    "keys/gen-lang-client-0187682933-39e35c8a1543.json"
+  ),
+});
 
-  io.use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) return next(new Error("Authentication error"));
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = await User.findById(decoded.id);
-      if (!socket.user) return next(new Error("Authentication error"));
-      next();
-    } catch (err) {
-      console.error("Auth error:", err);
-      next(new Error("Authentication error"));
-    }
-  });
+export const initVoiceChatSocket = (httpServer) => {
+  const io = new Server(httpServer, { cors: { origin: "*" } });
 
-  io.on("connection", async (socket) => {
-    const sessionStart = Date.now();
-    const session = await ChatSession.create({ user: socket.user._id, startTime: sessionStart });
+  io.on("connection", (socket) => {
+    let recognizeStream = null;
+    const conversationHistory = createConversationHistory();
 
-    const disconnectTimer = setTimeout(async () => {
-      const totalDuration = (Date.now() - sessionStart) / 1000;
-      await ChatSession.findByIdAndUpdate(session._id, { endTime: Date.now(), duration: totalDuration });
-      socket.emit("sessionEnded", { totalDuration });
-      socket.disconnect(true);
-    }, 60 * 1000);
+    // Start Google STT streaming
+    const startStreaming = () => {
+      recognizeStream = client
+        .streamingRecognize({
+          config: {
+            encoding: "WEBM_OPUS", // Must match client audio
+            sampleRateHertz: 48000,
+            languageCode: "ml-IN",
+            alternativeLanguageCodes: ["en-IN", "hi-IN", "en-US"],
+            enableAutomaticPunctuation: true,
+          },
+          interimResults: true, // Get partial transcripts
+        })
+        .on("error", (err) => {
+          console.error("STT Stream Error:", err);
+          stopStreaming();
+        })
+        .on("data", async (data) => {
+          if (!data.results || data.results.length === 0) return;
+          const result = data.results[0];
+          const transcriptLanguage = result.alternatives[0].transcript;
 
-    socket.on("chatMessage", async (text) => {
-      try {
-        const botResponse = await getResponseFromLLM(text);
-        await ChatMessage.create({ user: socket.user._id, sessionId: session._id, message: text, response: botResponse });
+          const transcript = await normalizeUserInput(transcriptLanguage);
 
-        // synthesize
-        const languageCode = mapNativeLangToCode(socket.user.nativeLanguage);
-        const audioBase64 = await synthesizeToBase64(botResponse, languageCode);
+          if (result.isFinal) {
+            // 1️⃣ Send transcript to LLM
+            const botData = await getResponseFromLLM(
+              transcript,
+              conversationHistory
+            );
+            // 2️⃣ Convert AI response to speech
+            const audioBase64 = await synthesizeToBase64(
+              botData.aiReply,
+              "ml-IN"
+            );
 
-        socket.emit("botMessage", { text: botResponse, audio: audioBase64 });
-      } catch (err) {
-        console.error("chatMessage error:", err);
-        socket.emit("botMessage", { text: "Sorry, something went wrong." });
+            // 3️⃣ Emit final response
+            socket.emit("botMessage", {
+              transcript: botData.correctedTranscript,
+              text: botData.aiReply,
+              audio: audioBase64,
+            });
+          } else {
+            // Send partial transcript for "live typing"
+            socket.emit("partialTranscript", transcript);
+          }
+        });
+    };
+
+    const stopStreaming = () => {
+      if (recognizeStream) {
+        recognizeStream.end();
+        recognizeStream = null;
       }
+    };
+
+    // Receive audio chunks from browser
+    socket.on("audioChunk", (chunk) => {
+      if (!recognizeStream) startStreaming();
+      recognizeStream.write(chunk);
     });
 
-    socket.on("hangUp", async () => {
-      clearTimeout(disconnectTimer);
-      const totalDuration = (Date.now() - sessionStart) / 1000;
-      await ChatSession.findByIdAndUpdate(session._id, { endTime: Date.now(), duration: totalDuration });
-      socket.emit("sessionEnded", { totalDuration });
-      socket.disconnect(true);
+    socket.on("hangUp", () => {
+      stopStreaming();
+      socket.disconnect();
     });
 
-    socket.on("disconnect", async () => {
-      clearTimeout(disconnectTimer);
-      const totalDuration = (Date.now() - sessionStart) / 1000;
-      await ChatSession.findByIdAndUpdate(session._id, { endTime: Date.now(), duration: totalDuration });
-      await ChatMessage.updateMany({ sessionId: session._id }, { duration: totalDuration });
-    });
+    socket.on("disconnect", () => stopStreaming());
   });
 };
-
-function mapNativeLangToCode(native) {
-  switch (native) {
-    case "hi": return "hi-IN";
-    case "ta": return "ta-IN";
-    case "ml": return "ml-IN";
-    case "kn": return "kn-IN";
-    case "te": return "te-IN";
-    default: return "en-US";
-  }
-}
