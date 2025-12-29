@@ -27,7 +27,6 @@ export async function transcribeAudio(filePath, language = "en") {
     audio: { content: audioBytes },
     config: {
       encoding: "WEBM_OPUS", 
-      sampleRateHertz: 48000,
       languageCode: primaryLang, // Primary hint
       alternativeLanguageCodes: alternativeLangs, // Auto-detection list
       enableAutomaticPunctuation: true,
