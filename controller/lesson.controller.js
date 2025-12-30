@@ -6,6 +6,7 @@ import User from "../models/user.model.js";
 import { initializeUserProgress } from "./progress.controller.js";
 import fs from "fs";
 import Performance from "../models/perfomance.model.js";
+import { uploadToS3 } from "../services/s3Service.js";
 // Helpers
 const parseIfJson = (value) => {
   if (typeof value === "string") {
@@ -17,6 +18,22 @@ const parseIfJson = (value) => {
   }
   return value;
 };
+
+const emptyMultilingualVideos = () => ({
+  en: "",
+  ml: "",
+  ta: "",
+  te: "",
+  hi: "",
+  kn: "",
+});
+
+const ensureVideoObj = (val) => {
+  if (!val) return emptyMultilingualVideos();
+  if (typeof val === "string") return { ...emptyMultilingualVideos(), en: val };
+  return { ...emptyMultilingualVideos(), ...val };
+};
+
 
 const translate = (value, lang) => {
   const parsed = parseIfJson(value);
@@ -52,16 +69,29 @@ export const createLesson = async (req, res) => {
     }));
 
     // Collect videos per language
-    const videoUrl = {
-      en: req.files?.video_en?.[0]?.path || "",
-      ml: req.files?.video_ml?.[0]?.path || "",
-      ta: req.files?.video_ta?.[0]?.path || "",
-      te: req.files?.video_te?.[0]?.path || "",
-      hi: req.files?.video_hi?.[0]?.path || "",
-      kn: req.files?.video_kn?.[0]?.path || "",
-    };
+   const videoUrl = {
+  en: req.files?.video_en?.[0]
+    ? await uploadToS3(req.files.video_en[0], "videos")
+    : "",
+  ml: req.files?.video_ml?.[0]
+    ? await uploadToS3(req.files.video_ml[0], "videos")
+    : "",
+  ta: req.files?.video_ta?.[0]
+    ? await uploadToS3(req.files.video_ta[0], "videos")
+    : "",
+  te: req.files?.video_te?.[0]
+    ? await uploadToS3(req.files.video_te[0], "videos")
+    : "",
+  hi: req.files?.video_hi?.[0]
+    ? await uploadToS3(req.files.video_hi[0], "videos")
+    : "",
+  kn: req.files?.video_kn?.[0]
+    ? await uploadToS3(req.files.video_kn[0], "videos")
+    : "",
+};
 
-    const thumbnail = req.files?.thumbnail?.[0]?.path || "";
+    const thumbnail = req.file ? await uploadToS3(req.file, "images") : "";
+    
 
     const lesson = await Lesson.create({
       chapterId,
@@ -311,28 +341,30 @@ export const updateLesson = async (req, res) => {
       }));
       lesson.options = options;
     }
+lesson.videoUrl = ensureVideoObj(lesson.videoUrl);
 
     //  Update per-language videos only if replaced
-    const videoFields = {
-      en: "video_en",
-      ml: "video_ml",
-      ta: "video_ta",
-      te: "video_te",
-      hi: "video_hi",
-      kn: "video_kn",
-    };
+   const videoFields = {
+  en: "video_en",
+  ml: "video_ml",
+  ta: "video_ta",
+  te: "video_te",
+  hi: "video_hi",
+  kn: "video_kn",
+};
 
-    for (const lang in videoFields) {
-      const field = videoFields[lang];
-      if (req.files?.[field]?.[0]?.path) {
-        lesson.videoUrl[lang] = req.files[field][0].path;
-      }
-    }
+for (const lang in videoFields) {
+  const field = videoFields[lang];
+  if (req.files?.[field]?.[0]) {
+    // Upload file to S3 and get the URL
+    lesson.videoUrl[lang] = await uploadToS3(req.files[field][0], "videos");
+  }
+}
 
     //  Update thumbnail
-    if (req.files?.thumbnail?.[0]?.path) {
-      lesson.thumbnail = req.files.thumbnail[0].path;
-    }
+    if (req.files?.thumbnail?.[0]) {
+  lesson.thumbnail = await uploadToS3(req.files.thumbnail[0], "images");
+}
 
     if (req.body.order) lesson.order = req.body.order;
 

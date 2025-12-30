@@ -1,4 +1,5 @@
 import Topic from "../models/topic.model.js";
+import { uploadToS3 } from "../services/s3Service.js";
 
 // Create a new topic
 export const createTopic = async (req, res) => {
@@ -14,8 +15,11 @@ export const createTopic = async (req, res) => {
     if (typeof title === "string") title = JSON.parse(title);
     if (typeof description === "string") description = JSON.parse(description);
 
-    const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : "";
-
+let imageUrl = "";
+if (req.file) {
+  // Upload to S3 and get the public URL
+  imageUrl = await uploadToS3(req.file, "images");
+}
     const topic = new Topic({
       title,
       description,
@@ -134,8 +138,10 @@ export const updateTopic = async (req, res) => {
       updates.redirect = req.body.redirect;
     }
 
-    if (req.file) updates.imageUrl = `/uploads/images/${req.file.filename}`;
-
+if (req.file) {
+  // Upload to S3 and get the public URL
+  updates.imageUrl = await uploadToS3(req.file, "images");
+}
     const updatedTopic = await Topic.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true,

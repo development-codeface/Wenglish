@@ -2,6 +2,7 @@ import Chapter from "../models/chapter.model.js";
 import Lesson from "../models/lessons.model.js";
 import User from "../models/user.model.js";
 import UserProgress from "../models/userProgress.model.js";
+import { uploadToS3 } from "../services/s3Service.js";
 
 const translate = (value, lang) => {
   const parsed = parseIfJson(value);
@@ -22,7 +23,8 @@ const parseIfJson = (value) => {
 export const createChapter = async (req, res) => {
   try {
     let { title, intro, order } = req.body;
-    const thumbnail = req.file ? `/uploads/images/${req.file.filename}` : null;
+    const thumbnail = req.file ? await uploadToS3(req.file, "images") : null;
+
 
     // Auto-parse JSON if sent as a string in form-data
     try {
@@ -189,9 +191,9 @@ export const updateChapter = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, intro, order } = req.body;
-    const thumbnail = req.file
-      ? `/uploads/images/${req.file.filename}`
-      : undefined;
+    const thumbnail = req.file ? await uploadToS3(req.file, "images") : null;
+
+      
 
     // Build update object dynamically
     const updateData = {};

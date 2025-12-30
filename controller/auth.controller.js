@@ -35,7 +35,8 @@ export const registerUser = async (req, res) => {
     await TempUser.deleteOne({ email });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const profileImage = req.file ? `/uploads/profiles/${req.file.filename}` : "";
+    const profileImage = req.file ? await uploadToS3(req.file, "images") : "";
+    
 
     await TempUser.create({
       name,

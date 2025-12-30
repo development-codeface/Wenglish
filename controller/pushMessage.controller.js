@@ -1,5 +1,6 @@
 // controllers/pushMessage.controller.js
 import PushMessage from "../models/pushMessage.model.js";
+import { uploadToS3 } from "../services/s3Service.js";
 
 export const EMPTY_TRANSLATIONS = {
   en: "",
@@ -44,8 +45,11 @@ export const createPushMessage = async (req, res) => {
       if (req.body.body) body = JSON.parse(req.body.body);
     } catch {}
 
-    const imageUrl = req.file ? "/uploads/images/" + req.file.filename : "";
-
+let imageUrl = "";
+if (req.file) {
+  // Upload the file buffer to S3 and get the URL
+  imageUrl = await uploadToS3(req.file, "images");
+}
     const payload = {
       type: req.body.type || "inactivity",
       title: { ...EMPTY_TRANSLATIONS, ...title },
@@ -136,7 +140,7 @@ export const updatePushMessage = async (req, res) => {
     }
 
     if (req.file) {
-      updateData.imageUrl = "/uploads/images/" + req.file.filename;
+      updateData.imageUrl = await uploadToS3(req.file, "images");
     }
 
     const updated = await PushMessage.findByIdAndUpdate(

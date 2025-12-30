@@ -4,6 +4,7 @@ import { getGrammarTutorResponse } from "../services/llmService.js";
 import GrammarChatHistory from "../models/grammerChatHistory.model.js";
 import { transcribeAudio } from "../services/sst.Service.js";
 import fs from "fs";
+import { uploadToS3 } from "../services/s3Service.js";
 
 export const createGrammarSubtopic = async (req, res) => {
   try {
@@ -14,7 +15,8 @@ export const createGrammarSubtopic = async (req, res) => {
 
     let title = JSON.parse(req.body.title);
     let description = JSON.parse(req.body.description);
-    const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : "";
+const imageUrl = req.file ? await uploadToS3(req.file, "images") : "";
+
 
     const subtopic = new GrammarSubtopic({ topicId, title, description, imageUrl });
     await subtopic.save();
@@ -111,7 +113,7 @@ export const updateGrammarSubtopic = async (req, res) => {
       : subtopic.description;
 
     // Replace image only if new one uploaded
-    const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : subtopic.imageUrl;
+const imageUrl = req.file ? await uploadToS3(req.file, "images") : subtopic.imageUrl;
 
     // Apply updates
     subtopic.title = title;
