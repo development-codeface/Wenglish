@@ -1,4 +1,5 @@
 import Discount from "../models/discount.model.js";
+import { uploadToS3 } from "../services/s3Service.js";
 
 // Create a new multilingual discount
 export const createDiscount = async (req, res) => {
@@ -30,7 +31,8 @@ export const createDiscount = async (req, res) => {
       discountPercentage,
       isActive: isActive !== undefined ? isActive : true,
 
-      image: req.file ? `/uploads/images/${req.file.filename}` : "",
+      image:req.file ? await uploadToS3(req.file, "images") : null,
+      
 
       // NEW FIELDS
       duration,
@@ -132,7 +134,8 @@ export const updateDiscount = async (req, res) => {
     const updates = { ...req.body };
 
     if (req.file) {
-      updates.image = `/uploads/images/${req.file.filename}`;
+      updates.image = await uploadToS3(req.file, "images")
+
     }
 
     // Parse multilingual JSON if needed

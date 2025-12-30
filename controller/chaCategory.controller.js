@@ -2,8 +2,9 @@ import ChatCategory from "../models/chatCategories.model.js";
 import { getCategoryChatResponse } from "../services/llmService.js";
 import ChatHistory from "../models/chatHistory.model.js";
 import mongoose from "mongoose";
+import { uploadToS3 } from "../services/s3Service.js";
 
-// Create a new chat category 
+// Create a new chat category
 export const createCategory = async (req, res) => {
   try {
     let { title, description } = req.body;
@@ -19,7 +20,7 @@ export const createCategory = async (req, res) => {
     }
 
     const newCategory = new ChatCategory({
-      image: req.file ? `/uploads/images/${req.file.filename}` : "",
+      image: req.file ? await uploadToS3(req.file, "images") : "",
       title,
       description,
     });
@@ -49,22 +50,20 @@ export const getAllCategories = async (req, res) => {
       // return only these two language values
       title: {
         native: cat.title?.[nativeLang] || cat.title?.en,
-        preferred: cat.title?.[preferredLang] || cat.title?.en
+        preferred: cat.title?.[preferredLang] || cat.title?.en,
       },
 
       description: {
         native: cat.description?.[nativeLang] || cat.description?.en,
-        preferred: cat.description?.[preferredLang] || cat.description?.en
-      }
+        preferred: cat.description?.[preferredLang] || cat.description?.en,
+      },
     }));
 
     res.status(200).json(localized);
-
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 export const getAllCategoriesAllLang = async (req, res) => {
   try {
@@ -74,7 +73,10 @@ export const getAllCategoriesAllLang = async (req, res) => {
       _id: cat._id,
       image: cat.image,
       title: typeof cat.title === "object" ? cat.title : { en: cat.title },
-      description: typeof cat.description === "object" ? cat.description : { en: cat.description }
+      description:
+        typeof cat.description === "object"
+          ? cat.description
+          : { en: cat.description },
     }));
 
     res.status(200).json(formatted);
@@ -82,7 +84,6 @@ export const getAllCategoriesAllLang = async (req, res) => {
     res.status(500).json({ status: false, message: error.message });
   }
 };
-
 
 // Get a single category by ID — localized
 export const getCategoryById = async (req, res) => {
@@ -120,13 +121,19 @@ export const updateCategory = async (req, res) => {
     };
 
     if (req.file) {
-      updateData.image = `/uploads/images/${req.file.filename}`;
+      if (req.file) {
+        updateData.image = await uploadToS3(req.file, "images");
+      }
     }
 
-    const updatedCategory = await ChatCategory.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedCategory = await ChatCategory.findByIdAndUpdate(
+      id,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updatedCategory)
       return res.status(404).json({ error: "Category not found" });
@@ -144,7 +151,8 @@ export const updateCategory = async (req, res) => {
 export const deleteCategory = async (req, res) => {
   try {
     const deletedCategory = await ChatCategory.findByIdAndDelete(req.params.id);
-    if (!deletedCategory) return res.status(404).json({ error: "Category not found" });
+    if (!deletedCategory)
+      return res.status(404).json({ error: "Category not found" });
     res.status(200).json({ message: "Chat category deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -172,12 +180,8 @@ export const categoryChat = async (req, res) => {
 
     const categoryName = category.title?.[language] || category.title?.en;
 
-    const {
-      reply,
-      correctedInput,
-      preferred,
-      native
-    } = await getCategoryChatResponse(categoryName, message, user._id);
+    const { reply, correctedInput, preferred, native } =
+      await getCategoryChatResponse(categoryName, message, user._id);
 
     // Save to DB
     const chatRecord = new ChatHistory({
@@ -187,7 +191,7 @@ export const categoryChat = async (req, res) => {
       userMessage: message,
       correctedInput,
       preferred: reply.preferred,
-      native: reply.native
+      native: reply.native,
     });
 
     await chatRecord.save();
@@ -196,17 +200,12 @@ export const categoryChat = async (req, res) => {
     return res.status(200).json({
       preferred: reply.preferred,
       native: reply.native,
-      correctedInput
+      correctedInput,
     });
-
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 };
-
-
-
-
 
 // Get chat history for a user (optionally by category)
 export const getChatHistory = async (req, res) => {
@@ -237,28 +236,26 @@ export const getChatHistory = async (req, res) => {
               preferred: "$preferred",
               native: "$native",
               categoryName: "$categoryName",
-              createdAt: "$createdAt"
-            }
-          }
-        }
+              createdAt: "$createdAt",
+            },
+          },
+        },
       },
 
       {
         $project: {
           category: "$_id",
           chats: 1,
-          _id: 0
-        }
-      }
+          _id: 0,
+        },
+      },
     ]);
 
     res.status(200).json(history);
-
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 export const getChatHistoryById = async (req, res) => {
   try {
@@ -274,10 +271,12 @@ export const getChatHistoryById = async (req, res) => {
 
     const history = await ChatHistory.find({
       user: userId,
-      category: categoryObjectId
+      category: categoryObjectId,
     })
       .sort({ createdAt: -1 })
-      .select("userMessage correctedInput preferred native categoryName createdAt");
+      .select(
+        "userMessage correctedInput preferred native categoryName createdAt"
+      );
 
     res.status(200).json(history);
   } catch (error) {

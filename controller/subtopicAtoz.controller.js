@@ -2,6 +2,7 @@ import SubTopicAtoZ from "../models/subtopicAtoZ.model.js";
 import Topic from "../models/topic.model.js";
 import Letters from "../models/letter.model.js";
 import Performance from "../models/perfomance.model.js";
+import { uploadToS3 } from "../services/s3Service.js";
 
 const safeParse = (input, fallback = {}) => {
   if (!input || input === "undefined" || input === "null") return fallback;
@@ -11,7 +12,6 @@ const safeParse = (input, fallback = {}) => {
     return fallback;
   }
 };
-
 
 export const createSubTopic = async (req, res) => {
   try {
@@ -27,8 +27,7 @@ export const createSubTopic = async (req, res) => {
     const fullWord = safeParse(req.body.fullWord, {});
     const hint = safeParse(req.body.hint, {});
 
-    const imageUrl = req.file ? `/uploads/images/${req.file.filename}` : "";
-
+    const imageUrl = req.file ? await uploadToS3(req.file, "images") : "";
     // --- Convert Text → Letter ID for each language ---
     const correctAnswers = {};
 
@@ -56,23 +55,20 @@ export const createSubTopic = async (req, res) => {
       correctAnswers, // now contains IDs
       fullWord,
       hint,
-      imageUrl
+      imageUrl,
     });
 
     await subTopic.save();
 
     res.status(201).json({
       message: "Subtopic created successfully",
-      subTopic
+      subTopic,
     });
-
   } catch (error) {
     console.error("Create SubTopic Error:", error);
     res.status(400).json({ message: error.message });
   }
 };
-
-
 
 export const getAllSubTopics = async (req, res) => {
   try {
@@ -91,7 +87,7 @@ export const getAllSubTopics = async (req, res) => {
     const preferredLang = allLetters
       .map((l) => ({
         id: l._id,
-        value: l[userLang] || ""
+        value: l[userLang] || "",
       }))
       .filter((item) => item.value && item.value.trim() !== "");
 
@@ -106,26 +102,18 @@ export const getAllSubTopics = async (req, res) => {
         ? {
             title: s.topicId.title?.[userLang] || s.topicId.title?.en,
             description:
-              s.topicId.description?.[userLang] ||
-              s.topicId.description?.en,
-            imageUrl: s.topicId.imageUrl
+              s.topicId.description?.[userLang] || s.topicId.description?.en,
+            imageUrl: s.topicId.imageUrl,
           }
         : null,
-      letters: preferredLang  // EXACT insertion order
+      letters: preferredLang, // EXACT insertion order
     }));
 
     res.status(200).json(result);
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-
-
-
-
-
 
 export const getAllSubTopicsAllLanguages = async (req, res) => {
   try {
@@ -137,20 +125,18 @@ export const getAllSubTopicsAllLanguages = async (req, res) => {
 
     res.status(200).json({
       status: true,
-      subTopics
+      subTopics,
     });
-
   } catch (error) {
     res.status(500).json({ status: false, message: error.message });
   }
 };
 
-
-
 export const getSubTopicById = async (req, res) => {
   try {
-    const subTopic = await SubTopicAtoZ.findById(req.params.id)
-      .populate("topicId");
+    const subTopic = await SubTopicAtoZ.findById(req.params.id).populate(
+      "topicId"
+    );
 
     if (!subTopic) {
       return res.status(404).json({ message: "Subtopic not found" });
@@ -166,7 +152,7 @@ export const getSubTopicById = async (req, res) => {
     const letters = allLetters
       .map((l) => ({
         id: l._id,
-        value: l[userLang] || ""
+        value: l[userLang] || "",
       }))
       .filter((item) => item.value && item.value.trim() !== "");
 
@@ -176,29 +162,28 @@ export const getSubTopicById = async (req, res) => {
       question: subTopic.question?.[userLang] || subTopic.question?.en,
       fullWord: subTopic.fullWord?.[userLang] || subTopic.fullWord?.en,
       hint: subTopic.hint?.[nativeLang] || subTopic.hint?.en,
-      correctAnswer: subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en,
+      correctAnswer:
+        subTopic.correctAnswers?.[userLang] || subTopic.correctAnswers?.en,
       imageUrl: subTopic.imageUrl,
       topic: subTopic.topicId
         ? {
             _id: subTopic.topicId._id,
-            title: subTopic.topicId.title?.[userLang] || subTopic.topicId.title?.en,
+            title:
+              subTopic.topicId.title?.[userLang] || subTopic.topicId.title?.en,
             description:
               subTopic.topicId.description?.[userLang] ||
               subTopic.topicId.description?.en,
-            imageUrl: subTopic.topicId.imageUrl
+            imageUrl: subTopic.topicId.imageUrl,
           }
         : null,
-      letters
+      letters,
     };
 
     res.status(200).json(result);
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-
 
 export const updateSubTopic = async (req, res) => {
   try {
@@ -207,16 +192,18 @@ export const updateSubTopic = async (req, res) => {
       return res.status(404).json({ message: "Subtopic not found" });
     }
 
-    const imageUrl =
-      req.file ? `/uploads/images/${req.file.filename}` : existing.imageUrl;
+    const imageUrl = req.file ? await uploadToS3(req.file, "images") : "";
 
     const updatedData = {
       topicId: req.body.topicId || existing.topicId,
       question: safeParse(req.body.question, existing.question),
-      correctAnswers: safeParse(req.body.correctAnswers, existing.correctAnswers), // TEXT
+      correctAnswers: safeParse(
+        req.body.correctAnswers,
+        existing.correctAnswers
+      ), // TEXT
       fullWord: safeParse(req.body.fullWord, existing.fullWord),
       hint: safeParse(req.body.hint, existing.hint),
-      imageUrl
+      imageUrl,
     };
 
     const updated = await SubTopicAtoZ.findByIdAndUpdate(
@@ -227,14 +214,12 @@ export const updateSubTopic = async (req, res) => {
 
     res.status(200).json({
       message: "Subtopic updated successfully",
-      updated
+      updated,
     });
-
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
-
 
 export const deleteSubTopic = async (req, res) => {
   try {
@@ -244,12 +229,10 @@ export const deleteSubTopic = async (req, res) => {
     }
 
     res.status(200).json({ message: "Subtopic deleted successfully" });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 export const answerSubTopic = async (req, res) => {
   try {
@@ -264,7 +247,8 @@ export const answerSubTopic = async (req, res) => {
     }
 
     // Correct answer ID for this language
-    const correctLetterId = subTopic.correctAnswers[userLang] || subTopic.correctAnswers.en;
+    const correctLetterId =
+      subTopic.correctAnswers[userLang] || subTopic.correctAnswers.en;
 
     if (!correctLetterId) {
       return res.status(400).json({ message: "Correct answer ID missing" });
@@ -274,7 +258,9 @@ export const answerSubTopic = async (req, res) => {
     const correctLetter = await Letters.findById(correctLetterId).lean();
 
     if (!correctLetter) {
-      return res.status(400).json({ message: "Correct letter not found in DB" });
+      return res
+        .status(400)
+        .json({ message: "Correct letter not found in DB" });
     }
 
     // Compare IDs
@@ -291,7 +277,7 @@ export const answerSubTopic = async (req, res) => {
       userAnswer: { selectedLetterId },
       correctAnswer: { correctLetterId },
       isCorrect,
-      timeTaken: req.body.timeTaken || 0
+      timeTaken: req.body.timeTaken || 0,
     });
 
     res.status(200).json({
@@ -302,13 +288,12 @@ export const answerSubTopic = async (req, res) => {
       isCorrect,
       message: isCorrect
         ? "Correct!"
-        : `Incorrect. Correct letter is "${correctLetter[userLang] || correctLetter.en}".`
+        : `Incorrect. Correct letter is "${
+            correctLetter[userLang] || correctLetter.en
+          }".`,
     });
-
   } catch (err) {
     console.error("Answer error:", err);
     res.status(500).json({ message: err.message });
   }
 };
-
-

@@ -1,14 +1,15 @@
 import { createUploader } from "./upload.middleware.js";
 
-export const uploadProfile = createUploader("profiles");
-export const uploadImages = createUploader("images");
+export const uploadProfile = createUploader();
 
-// Allow both images and videos for lessons
-export const uploadLessonMedia = createUploader("lessons", [
+export const uploadImages = createUploader();
+
+// Images + Videos
+export const uploadLessonMedia = createUploader([
   "image/jpeg",
   "image/png",
   "image/jpg",
   "video/mp4",
   "video/mkv",
-  "video/webm"
+  "video/webm",
 ]);
