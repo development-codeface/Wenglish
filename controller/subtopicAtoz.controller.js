@@ -17,42 +17,46 @@ export const createSubTopic = async (req, res) => {
   try {
     const { topicId } = req.body;
 
-    // Topic validation
     const topicExists = await Topic.findById(topicId);
-    if (!topicExists)
+    if (!topicExists) {
       return res.status(404).json({ message: "Topic not found" });
+    }
 
     const question = safeParse(req.body.question, {});
-    const correctAnswersText = safeParse(req.body.correctAnswers, {}); // comes as text
+    const correctAnswersInput = safeParse(req.body.correctAnswers, {});
     const fullWord = safeParse(req.body.fullWord, {});
     const hint = safeParse(req.body.hint, {});
 
-    const imageUrl = req.file ? await uploadToS3(req.file, "images") : "";
-    // --- Convert Text → Letter ID for each language ---
+    const imageUrl = req.file
+      ? await uploadToS3(req.file, "images")
+      : "";
+
     const correctAnswers = {};
 
-    for (const lang of Object.keys(correctAnswersText)) {
-      const letterText = correctAnswersText[lang];
+    for (const lang of Object.keys(correctAnswersInput)) {
+      const value = correctAnswersInput[lang];
 
-      if (!letterText || !letterText.trim()) {
+      if (!value) {
         correctAnswers[lang] = null;
         continue;
       }
 
-      // Find matching letter
-      const letterDoc = await Letters.findOne({ [lang]: letterText }).lean();
-
-      if (letterDoc) {
-        correctAnswers[lang] = letterDoc._id; // store ID
-      } else {
-        correctAnswers[lang] = null; // or throw error
+      // ✅ NEW FLOW: value is LETTER ID
+      if (value.length > 1) {
+        const exists = await Letters.exists({ _id: value });
+        correctAnswers[lang] = exists ? value : null;
+        continue;
       }
+
+      // ⚠️ OLD FLOW SUPPORT: value is LETTER TEXT (A, B, C…)
+      const letterDoc = await Letters.findOne({ [lang]: value }).lean();
+      correctAnswers[lang] = letterDoc ? letterDoc._id : null;
     }
 
     const subTopic = new SubTopicAtoZ({
       topicId,
       question,
-      correctAnswers, // now contains IDs
+      correctAnswers,
       fullWord,
       hint,
       imageUrl,
@@ -192,19 +196,47 @@ export const updateSubTopic = async (req, res) => {
       return res.status(404).json({ message: "Subtopic not found" });
     }
 
-    const imageUrl = req.file ? await uploadToS3(req.file, "images") : "";
+    const question = safeParse(req.body.question, existing.question);
+    const correctAnswersText = safeParse(
+      req.body.correctAnswers,
+      existing.correctAnswers
+    );
+    const fullWord = safeParse(req.body.fullWord, existing.fullWord);
+    const hint = safeParse(req.body.hint, existing.hint);
+
+    // 🔥 FIX: convert letter text → letter ID (same as create)
+    const correctAnswers = {};
+
+    for (const lang of Object.keys(correctAnswersText)) {
+      const letterText = correctAnswersText[lang];
+
+      if (!letterText || !letterText.trim) {
+        correctAnswers[lang] = null;
+        continue;
+      }
+
+      // If already an ObjectId, keep it
+      if (letterText.length > 1) {
+        correctAnswers[lang] = letterText;
+        continue;
+      }
+
+      // Convert letter text → ID
+      const letterDoc = await Letters.findOne({ [lang]: letterText }).lean();
+      correctAnswers[lang] = letterDoc ? letterDoc._id : null;
+    }
 
     const updatedData = {
       topicId: req.body.topicId || existing.topicId,
-      question: safeParse(req.body.question, existing.question),
-      correctAnswers: safeParse(
-        req.body.correctAnswers,
-        existing.correctAnswers
-      ), // TEXT
-      fullWord: safeParse(req.body.fullWord, existing.fullWord),
-      hint: safeParse(req.body.hint, existing.hint),
-      imageUrl,
+      question,
+      correctAnswers,
+      fullWord,
+      hint,
     };
+
+    if (req.file) {
+      updatedData.imageUrl = await uploadToS3(req.file, "images");
+    }
 
     const updated = await SubTopicAtoZ.findByIdAndUpdate(
       req.params.id,
@@ -217,9 +249,12 @@ export const updateSubTopic = async (req, res) => {
       updated,
     });
   } catch (error) {
+    console.error("Update SubTopic Error:", error);
     res.status(400).json({ message: error.message });
   }
 };
+
+
 
 export const deleteSubTopic = async (req, res) => {
   try {

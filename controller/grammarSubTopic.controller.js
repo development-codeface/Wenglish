@@ -15,7 +15,7 @@ export const createGrammarSubtopic = async (req, res) => {
 
     let title = JSON.parse(req.body.title);
     let description = JSON.parse(req.body.description);
-const imageUrl = req.file ? await uploadToS3(req.file, "images") : "";
+const imageUrl = req.file ? await uploadToS3(req.file, "imageUrl") : "";
 
 
     const subtopic = new GrammarSubtopic({ topicId, title, description, imageUrl });
@@ -113,7 +113,7 @@ export const updateGrammarSubtopic = async (req, res) => {
       : subtopic.description;
 
     // Replace image only if new one uploaded
-const imageUrl = req.file ? await uploadToS3(req.file, "images") : subtopic.imageUrl;
+const imageUrl = req.file ? await uploadToS3(req.file, "imageUrl") : subtopic.imageUrl;
 
     // Apply updates
     subtopic.title = title;

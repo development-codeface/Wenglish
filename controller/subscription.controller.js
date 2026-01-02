@@ -1,5 +1,6 @@
 import SubscriptionPlan from "../models/subscription.model.js";
 import User from "../models/user.model.js";
+import { uploadToS3 } from "../services/s3Service.js";
 
 // Create a new subscription plan
 export const createSubscriptionPlan = async (req, res) => {
@@ -13,7 +14,7 @@ export const createSubscriptionPlan = async (req, res) => {
 
     // Handle uploaded image
     if (req.file) {
-      req.body.imageUrl = `/uploads/images/${req.file.filename}`;
+  req.body.imageUrl = await uploadToS3(req.file, "imageUrl");
     }
 
     const plan = new SubscriptionPlan(req.body);
@@ -177,7 +178,7 @@ export const updateSubscriptionPlan = async (req, res) => {
     }
 
     if (req.file) {
-      req.body.imageUrl = `/uploads/images/${req.file.filename}`;
+  req.body.imageUrl = await uploadToS3  (req.file, "imageUrl");
     }
 
     const updatedPlan = await SubscriptionPlan.findByIdAndUpdate(id, req.body, {

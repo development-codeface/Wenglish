@@ -90,8 +90,9 @@ export const createLesson = async (req, res) => {
     : "",
 };
 
-    const thumbnail = req.file ? await uploadToS3(req.file, "images") : "";
-    
+const thumbnail = req.files?.thumbnail?.[0]
+  ? await uploadToS3(req.files.thumbnail[0], "thumbnail")
+  : "";    
 
     const lesson = await Lesson.create({
       chapterId,
