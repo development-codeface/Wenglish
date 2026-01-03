@@ -15,7 +15,11 @@ const translate = (value, lang) => {
 
 const parseIfJson = (value) => {
   if (typeof value === "string") {
-    try { return JSON.parse(value); } catch { return value; }
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
   }
   return value;
 };
@@ -24,7 +28,6 @@ export const createChapter = async (req, res) => {
   try {
     let { title, intro, order } = req.body;
     const thumbnail = req.file ? await uploadToS3(req.file, "images") : null;
-
 
     // Auto-parse JSON if sent as a string in form-data
     try {
@@ -70,12 +73,12 @@ export const getAllChapters = async (req, res) => {
     const chapters = await Chapter.find().sort({ order: 1 });
 
     const localizedChapters = chapters.map((chapter, index) => ({
-  _id: chapter._id,
-  order: chapter.order,
-  title: chapter.title[userLang] || chapter.title.en,
-  intro: chapter.intro[userLang] || chapter.intro.en,
-  locked: index === 0 ? false : true, 
-}));
+      _id: chapter._id,
+      order: chapter.order,
+      title: chapter.title[userLang] || chapter.title.en,
+      intro: chapter.intro[userLang] || chapter.intro.en,
+      locked: index === 0 ? false : true,
+    }));
 
     res.status(200).json({
       message: `Chapters in ${userLang}`,
@@ -143,7 +146,10 @@ export const getAllChaptersWithLessons = async (req, res) => {
 
         correctAnswer: null, // never expose
 
-        videoUrl: lesson.videoUrl || "",
+        videoUrl: {
+          native: lesson.videoUrl?.[nativeLang] || "",
+          preferred: lesson.videoUrl?.[preferredLang] || "",
+        },
         thumbnail: lesson.thumbnail || "",
 
         locked: !unlockedLessons.includes(String(lesson._id)),
@@ -156,8 +162,7 @@ export const getAllChaptersWithLessons = async (req, res) => {
     const data = chapters.map((chapter) => {
       const chapterUnlocked = unlockedChapters.includes(String(chapter._id));
 
-      const chapterLessons =
-        lessonsByChapter[chapter._id.toString()] || [];
+      const chapterLessons = lessonsByChapter[chapter._id.toString()] || [];
 
       return {
         _id: chapter._id,
@@ -187,7 +192,6 @@ export const getAllChaptersWithLessons = async (req, res) => {
       message: "Chapters and lessons returned correctly",
       chapters: data,
     });
-
   } catch (err) {
     console.error("getAllChaptersWithLessons error:", err);
     return res.status(500).json({
@@ -197,16 +201,11 @@ export const getAllChaptersWithLessons = async (req, res) => {
   }
 };
 
-
-
-
 export const updateChapter = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, intro, order } = req.body;
     const thumbnail = req.file ? await uploadToS3(req.file, "images") : null;
-
-      
 
     // Build update object dynamically
     const updateData = {};
