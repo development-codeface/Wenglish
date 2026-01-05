@@ -1,7 +1,7 @@
 import { getGeneralChatResponse, normalizeUserInput } from "../services/llmService.js";
 import GeneralChatHistory from "../models/generalChat.model.js";
 import fs from "fs";
-import { transcribeAudio, transcribeAudioAuto } from "../services/sst.Service.js";
+import { transcribeAudio, transcribeAudioAuto, transcribeAudioAutoFromBuffer } from "../services/sst.Service.js";
 
 export const generalChat = async (req, res) => {
   try {
@@ -90,34 +90,28 @@ export const resetGeneralChat = async (req, res) => {
 };
 
 export const generalChatVoice = async (req, res) => {
-  let filePath;
-
   try {
     const userId = req.user._id;
 
-    /* ---------- VALIDATION ---------- */
     if (!req.file) {
       return res.status(400).json({ message: "Audio file required" });
     }
 
-    filePath = req.file.path;
+    // 🔑 Use buffer, not path
+    const rawTranscript = await transcribeAudioAutoFromBuffer(
+      req.file.buffer
+    );
 
-    /* ---------- SPEECH → TEXT ---------- */
-    const rawTranscript = await transcribeAudioAuto(filePath);
-
-    /* ---------- NORMALIZE ---------- */
     const transcript = await normalizeUserInput(rawTranscript);
 
-    if (!transcript || !transcript.trim()) {
+    if (!transcript?.trim()) {
       return res.status(422).json({
         message: "Could not understand audio",
       });
     }
 
-    /* ---------- LLM CHAT ---------- */
     const reply = await getGeneralChatResponse(userId, transcript.trim());
 
-    /* ---------- RESPONSE ---------- */
     return res.status(200).json({
       transcript: transcript.trim(),
       reply,
@@ -126,15 +120,8 @@ export const generalChatVoice = async (req, res) => {
   } catch (err) {
     console.error("Voice Chat Error:", err);
     return res.status(500).json({ message: "Server error" });
-
-  } finally {
-    // 🔥 ALWAYS delete the audio file
-    if (filePath) {
-      fs.unlink(filePath, (err) => {
-        if (err) console.error("Failed to delete audio file:", err);
-      });
-    }
   }
 };
+
 
 

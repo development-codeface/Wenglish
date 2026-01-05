@@ -86,6 +86,30 @@ export async function transcribeAudioAuto(filePath) {
   }
 }
 
+export async function transcribeAudioAutoFromBuffer(buffer) {
+  const audioBytes = buffer.toString("base64");
+
+  const request = {
+    audio: { content: audioBytes },
+    config: {
+      encoding: "WEBM_OPUS",
+      languageCode: "ml-IN",
+      alternativeLanguageCodes: ["hi-IN", "en-IN"],
+      enableAutomaticPunctuation: true,
+      model: "latest_short",
+    },
+  };
+
+  const [response] = await client.recognize(request);
+
+  if (!response.results?.length) return "";
+
+  return response.results
+    .map(r => r.alternatives[0].transcript)
+    .join(" ");
+}
+
+
 function mapLang(lang) {
   return {
     en: "en-US",
