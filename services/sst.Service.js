@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const client = new speech.SpeechClient({
   keyFilename: path.join(
     __dirname,
-    "../keys/gen-lang-client-0187682933-39e35c8a1543.json"
+    "../keys/weenglish-6bb28-4ea0e1c02172.json"
   ),
 });
 
@@ -78,7 +78,6 @@ export async function transcribeAudioAuto(filePath) {
       .map(r => r.alternatives[0].transcript)
       .join(" ");
     
-    console.log(`STT Success: ${transcript}`);
     return transcript;
 
   } catch (error) {
