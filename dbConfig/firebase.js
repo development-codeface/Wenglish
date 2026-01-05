@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Path to your JSON file
-const serviceAccountPath = path.join(__dirname, "../keys/weenglish-6bb28-firebase-adminsdk-fbsvc-5e2e7526c7.json");
+const serviceAccountPath = path.join(__dirname, "../keys/weenglish-6bb28-firebase-adminsdk-fbsvc-3f1bc882cc.json");
 
 // Read the file manually
 const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));

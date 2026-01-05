@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 const client = new textToSpeech.TextToSpeechClient({
   keyFilename: path.join(
     __dirname,
-    "../keys/weenglish-6bb28-4ea0e1c02172.json"
+    "../keys/gen-lang-client-0187682933-39e35c8a1543.json"
   ),
 });
 
