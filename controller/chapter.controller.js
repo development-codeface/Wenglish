@@ -144,7 +144,10 @@ export const getAllChaptersWithLessons = async (req, res) => {
           preferred: translate(opt, preferredLang),
         })),
 
-        correctAnswer: null, // never expose
+        correctAnswer: {
+          native: translate(lesson.correctAnswer, nativeLang),
+          preferred: translate(lesson.correctAnswer, preferredLang),
+        },
 
         videoUrl: {
           native: lesson.videoUrl?.[nativeLang] || "",
