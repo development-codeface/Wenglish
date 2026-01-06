@@ -149,7 +149,10 @@ export const getAllChaptersWithLessons = async (req, res) => {
               preferred: translate(correctOpt, preferredLang),
             }
           : null,
-        videoUrl: lesson.videoUrl,
+videoUrl: {
+  native: lesson.videoUrl?.[nativeLang] || lesson.videoUrl?.en || "",
+  preferred: lesson.videoUrl?.[preferredLang] || lesson.videoUrl?.en || "",
+},
         thumbnail: lesson.thumbnail,
         locked: !unlockedLessons.includes(String(lesson._id)),
       });
