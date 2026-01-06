@@ -99,90 +99,80 @@ export const getAllChaptersWithLessons = async (req, res) => {
     const nativeLang = user?.nativeLanguage || "en";
     const preferredLang = user?.languagePreference || "en";
 
-    /* -------- ENSURE USER PROGRESS EXISTS -------- */
     let progress = await UserProgress.findOne({ userId });
-    if (!progress) {
-      progress = await initializeUserProgress(userId);
-    }
+    if (!progress) progress = await initializeUserProgress(userId);
 
     const unlockedChapters = progress.unlockedChapters.map(String);
     const unlockedLessons = progress.unlockedLessons.map(String);
 
-    /* -------- FETCH DATA -------- */
     const chapters = await Chapter.find().sort({ order: 1 }).lean();
     const lessons = await Lesson.find().sort({ order: 1 }).lean();
 
-    /* -------- GROUP LESSONS BY CHAPTER -------- */
     const lessonsByChapter = lessons.reduce((acc, lesson) => {
       const chapId = lesson.chapterId?.toString();
       if (!chapId) return acc;
 
       acc[chapId] = acc[chapId] || [];
 
+      // Find the correct option exactly like getLessonsByChapter
+      let correctOpt = null;
+      if (lesson.correctAnswer) {
+        correctOpt = lesson.options.find(
+          (o) => o.en === lesson.correctAnswer.en
+        );
+      }
+
       acc[chapId].push({
         _id: lesson._id,
         order: lesson.order,
-
         title: {
           native: translate(lesson.title, nativeLang),
           preferred: translate(lesson.title, preferredLang),
         },
-
         description: {
           native: translate(lesson.description, nativeLang),
           preferred: translate(lesson.description, preferredLang),
         },
-
         question: {
           native: translate(lesson.question, nativeLang),
           preferred: translate(lesson.question, preferredLang),
         },
-
         options: lesson.options.map((opt) => ({
           optionId: opt.optionId,
           native: translate(opt, nativeLang),
           preferred: translate(opt, preferredLang),
         })),
-
-        correctAnswer: {
-          native: translate(lesson.correctAnswer, nativeLang),
-          preferred: translate(lesson.correctAnswer, preferredLang),
-        },
-
-        videoUrl: {
-          native: lesson.videoUrl?.[nativeLang] || "",
-          preferred: lesson.videoUrl?.[preferredLang] || "",
-        },
-        thumbnail: lesson.thumbnail || "",
-
+        correctAnswer: correctOpt
+          ? {
+              optionId: correctOpt.optionId,
+              native: translate(correctOpt, nativeLang),
+              preferred: translate(correctOpt, preferredLang),
+            }
+          : null,
+        videoUrl: lesson.videoUrl,
+        thumbnail: lesson.thumbnail,
         locked: !unlockedLessons.includes(String(lesson._id)),
       });
 
       return acc;
     }, {});
 
-    /* -------- BUILD FINAL RESPONSE -------- */
     const data = chapters.map((chapter) => {
       const chapterUnlocked = unlockedChapters.includes(String(chapter._id));
-
       const chapterLessons = lessonsByChapter[chapter._id.toString()] || [];
 
       return {
         _id: chapter._id,
         order: chapter.order,
-
         title: {
           native: translate(chapter.title, nativeLang),
           preferred: translate(chapter.title, preferredLang),
         },
-
         intro: {
           native: translate(chapter.intro, nativeLang),
           preferred: translate(chapter.intro, preferredLang),
         },
-
         locked: !chapterUnlocked,
-
         lessons: chapterLessons.map((lesson) => ({
           ...lesson,
           locked: !chapterUnlocked || lesson.locked,
@@ -197,12 +187,13 @@ export const getAllChaptersWithLessons = async (req, res) => {
     });
   } catch (err) {
     console.error("getAllChaptersWithLessons error:", err);
-    return res.status(500).json({
-      status: false,
-      message: err.message,
-    });
+    return res.status(500).json({ status: false, message: err.message });
   }
 };
+
+
+
+
 
 export const updateChapter = async (req, res) => {
   try {
