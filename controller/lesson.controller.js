@@ -262,22 +262,33 @@ export const getLessonsByChapterAll = async (req, res) => {
 export const answerLessonQuestion = async (req, res) => {
   try {
     const { lessonId } = req.params;
-    const { optionId } = req.body;
+    const { optionId, timeTaken = 0 } = req.body;
     const userId = req.user.id;
 
+    /* 1️⃣ Fetch lesson */
     const lesson = await Lesson.findById(lessonId);
-    if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+    if (!lesson)
+      return res.status(404).json({ message: "Lesson not found" });
 
+    /* 2️⃣ Find correct option (SOURCE OF TRUTH) */
     const correctOption = lesson.options.find(
-      (o) => o.en === lesson.correctAnswer.en
+      (o) => o.en === lesson.correctAnswer?.en
     );
 
-    if (!correctOption)
-      return res.status(500).json({ message: "Correct answer not found" });
+    if (!correctOption) {
+      console.error("Correct answer mismatch:", {
+        correctAnswer: lesson.correctAnswer,
+        options: lesson.options,
+      });
+      return res
+        .status(500)
+        .json({ message: "Correct answer not found" });
+    }
 
-    const isCorrect = String(correctOption.optionId) === String(optionId);
+    const isCorrect =
+      String(correctOption.optionId) === String(optionId);
 
-    // 👉 Save Lesson Performance
+    /* 3️⃣ Save performance */
     await Performance.create({
       user: userId,
       moduleType: "lesson",
@@ -288,35 +299,67 @@ export const answerLessonQuestion = async (req, res) => {
       userAnswer: { optionId },
       correctAnswer: { optionId: correctOption.optionId },
       isCorrect,
-      timeTaken: req.body.timeTaken || 0,
+      timeTaken,
     });
 
-    // ✨ Continue your progress logic
-    if (!isCorrect)
+    /* 4️⃣ Stop if wrong */
+    if (!isCorrect) {
       return res.json({ correct: false, message: "Wrong answer" });
+    }
 
+    /* 5️⃣ Progress */
     let progress = await UserProgress.findOne({ userId });
     if (!progress) progress = await initializeUserProgress(userId);
 
-    if (!progress.completedLessons.includes(lesson._id))
+    if (!progress.completedLessons.includes(lesson._id)) {
       progress.completedLessons.push(lesson._id);
+    }
 
+    /* 6️⃣ Unlock next lesson */
     const nextLesson = await Lesson.findOne({
       chapterId: lesson.chapterId,
       order: lesson.order + 1,
     });
 
-    if (nextLesson && !progress.unlockedLessons.includes(nextLesson._id)) {
-      progress.unlockedLessons.push(nextLesson._id);
+    if (nextLesson) {
+      if (!progress.unlockedLessons.includes(nextLesson._id)) {
+        progress.unlockedLessons.push(nextLesson._id);
+      }
+    } else {
+      /* 7️⃣ Last lesson → unlock next chapter */
+      const currentChapter = await Chapter.findById(lesson.chapterId);
+
+      const nextChapter = await Chapter.findOne({
+        order: currentChapter.order + 1,
+      });
+
+      if (nextChapter) {
+        if (!progress.unlockedChapters.includes(nextChapter._id)) {
+          progress.unlockedChapters.push(nextChapter._id);
+        }
+
+        const firstLessonNextChapter = await Lesson.findOne({
+          chapterId: nextChapter._id,
+        }).sort({ order: 1 });
+
+        if (
+          firstLessonNextChapter &&
+          !progress.unlockedLessons.includes(firstLessonNextChapter._id)
+        ) {
+          progress.unlockedLessons.push(firstLessonNextChapter._id);
+        }
+      }
     }
 
     await progress.save();
 
     return res.json({ correct: true, message: "Correct!" });
   } catch (err) {
+    console.error("answerLessonQuestion error:", err);
     return res.status(500).json({ message: err.message });
   }
 };
+
 
 // Update Lesson
 export const updateLesson = async (req, res) => {

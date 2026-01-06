@@ -114,34 +114,36 @@ export const getAllChaptersWithLessons = async (req, res) => {
 
       acc[chapId] = acc[chapId] || [];
 
-      // Find the correct option exactly like getLessonsByChapter
-      let correctOpt = null;
-      if (lesson.correctAnswer) {
-        correctOpt = lesson.options.find(
-          (o) => o.en === lesson.correctAnswer.en
-        );
-      }
+      // ✅ Same logic as getLessonsByChapter
+      const correctOpt = lesson.correctAnswer
+        ? lesson.options.find((o) => o.en === lesson.correctAnswer.en)
+        : null;
 
       acc[chapId].push({
         _id: lesson._id,
         order: lesson.order,
+
         title: {
           native: translate(lesson.title, nativeLang),
           preferred: translate(lesson.title, preferredLang),
         },
+
         description: {
           native: translate(lesson.description, nativeLang),
           preferred: translate(lesson.description, preferredLang),
         },
+
         question: {
           native: translate(lesson.question, nativeLang),
           preferred: translate(lesson.question, preferredLang),
         },
+
         options: lesson.options.map((opt) => ({
           optionId: opt.optionId,
           native: translate(opt, nativeLang),
           preferred: translate(opt, preferredLang),
         })),
+
         correctAnswer: correctOpt
           ? {
               optionId: correctOpt.optionId,
@@ -149,12 +151,17 @@ export const getAllChaptersWithLessons = async (req, res) => {
               preferred: translate(correctOpt, preferredLang),
             }
           : null,
-videoUrl: {
-  native: lesson.videoUrl?.[nativeLang] || lesson.videoUrl?.en || "",
-  preferred: lesson.videoUrl?.[preferredLang] || lesson.videoUrl?.en || "",
-},
+
+        videoUrl: {
+          native: lesson.videoUrl?.[nativeLang] || lesson.videoUrl?.en || "",
+          preferred:
+            lesson.videoUrl?.[preferredLang] || lesson.videoUrl?.en || "",
+        },
+
         thumbnail: lesson.thumbnail,
-        locked: !unlockedLessons.includes(String(lesson._id)),
+
+        // ⛔ DO NOT finalize lock here
+        _lessonUnlocked: unlockedLessons.includes(String(lesson._id)),
       });
 
       return acc;
@@ -167,18 +174,23 @@ videoUrl: {
       return {
         _id: chapter._id,
         order: chapter.order,
+
         title: {
           native: translate(chapter.title, nativeLang),
           preferred: translate(chapter.title, preferredLang),
         },
+
         intro: {
           native: translate(chapter.intro, nativeLang),
           preferred: translate(chapter.intro, preferredLang),
         },
+
         locked: !chapterUnlocked,
+
         lessons: chapterLessons.map((lesson) => ({
           ...lesson,
-          locked: !chapterUnlocked || lesson.locked,
+          locked: !(chapterUnlocked && lesson._lessonUnlocked),
+          _lessonUnlocked: undefined, // clean response
         })),
       };
     });
@@ -193,6 +205,7 @@ videoUrl: {
     return res.status(500).json({ status: false, message: err.message });
   }
 };
+
 
 
 
