@@ -13,9 +13,8 @@ export const uploadLessonMedia = createUploader([
   "video/mkv",
   "video/webm",
 ]);
-export const uploadAudio = createUploader([
-  "audio/webm",
-  "audio/ogg",
-  "audio/wav",
-  "audio/mpeg",
-]);
+export const uploadAudio = createUploader((file) =>
+  file.mimetype.startsWith("audio/")
+
+);
+
