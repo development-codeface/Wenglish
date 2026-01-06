@@ -64,7 +64,6 @@ export async function transcribeAudioAuto(filePath) {
         enableAutomaticPunctuation: true,
         // Using 'latest_long' with enhanced mode for better clarity
         model: "latest_long", 
-        useEnhanced: true, 
       },
     };
 
@@ -95,6 +94,7 @@ export async function transcribeAudioAutoFromBuffer(buffer) {
     audio: { content: audioBytes },
     config: {
       encoding: "WEBM_OPUS",
+      sampleRateHertz: 48000,
       languageCode: "ml-IN",
       alternativeLanguageCodes: ["hi-IN", "en-IN"],
       enableAutomaticPunctuation: true,
@@ -132,7 +132,6 @@ export async function transcribeAudioBuffer(
         alternativeLanguageCodes: alternatives,
         enableAutomaticPunctuation: true,
         model,
-        useEnhanced: true,
       },
     };
 
