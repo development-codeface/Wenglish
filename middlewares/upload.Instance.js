@@ -13,8 +13,19 @@ export const uploadLessonMedia = createUploader([
   "video/mkv",
   "video/webm",
 ]);
-export const uploadAudio = createUploader((file) =>
-  file.mimetype.startsWith("audio/")
+export const uploadAudio = createUploader([
+  "audio/mpeg",    // .mp3
+  "audio/wav",     // .wav
+  "audio/x-wav",   // .wav
+  "audio/ogg",     // .ogg
+  "audio/webm",    // .webm
+  "audio/opus",    // .opus
+  "audio/mp4",     // .m4a, .mp4
+  "audio/x-m4a",   // .m4a
+  "audio/m4a",     // .m4a
+  "audio/aac",     // .aac
+  "audio/x-aac",   // .aac
+  "application/octet-stream" // mobile fallback
+]);
 
-);
 
