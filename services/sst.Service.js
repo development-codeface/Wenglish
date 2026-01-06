@@ -6,11 +6,13 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const credentials = JSON.parse(
+  Buffer.from(process.env.GOOGLE_SPEECH_CREDENTIALS, "base64").toString("utf8")
+);
+
+
 const client = new speech.SpeechClient({
-  keyFilename: path.join(
-    __dirname,
-    "../keys/gen-lang-client-0187682933-39e35c8a1543.json"
-  ),
+  credentials,
 });
 
 export async function transcribeAudio(filePath, language = "en") {
@@ -109,6 +111,44 @@ export async function transcribeAudioAutoFromBuffer(buffer) {
     .join(" ");
 }
 
+export async function transcribeAudioBuffer(
+  buffer,
+  {
+    primaryLang = "ml-IN",
+    alternatives = ["hi-IN", "en-IN", "en-US"],
+    sampleRate = 48000,
+    model = "latest_long",
+  } = {}
+) {
+  try {
+    const audioBytes = buffer.toString("base64");
+
+    const request = {
+      audio: { content: audioBytes },
+      config: {
+        encoding: "WEBM_OPUS",
+        sampleRateHertz: sampleRate,
+        languageCode: primaryLang,
+        alternativeLanguageCodes: alternatives,
+        enableAutomaticPunctuation: true,
+        model,
+        useEnhanced: true,
+      },
+    };
+
+    const [response] = await client.recognize(request);
+
+    if (!response.results?.length) return "";
+
+    return response.results
+      .map(r => r.alternatives[0].transcript)
+      .join(" ");
+  } catch (err) {
+    console.error("STT Error:", err.details || err.message);
+    return "";
+  }
+}
+
 
 function mapLang(lang) {
   return {
@@ -120,4 +160,3 @@ function mapLang(lang) {
     kn: "kn-IN",
   }[lang] || "en-US";
 }
-

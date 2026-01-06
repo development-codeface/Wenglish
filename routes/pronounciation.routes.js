@@ -5,9 +5,9 @@ import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// Multer config for audio upload
+// ✅ Memory storage (NO filesystem)
 const upload = multer({
-  dest: "uploads/audio/",
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10 MB
   },

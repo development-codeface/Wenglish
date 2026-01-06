@@ -1,6 +1,6 @@
 import fs from "fs";
 import User from "../models/user.model.js";
-import { transcribeAudio } from "../services/sst.Service.js";
+import { transcribeAudioBuffer } from "../services/sst.Service.js";
 import {
   evaluatePronunciation,
   evaluateUnclearPronunciation
@@ -11,14 +11,13 @@ import { synthesizeToBase64 } from "../services/ttsService.js";
  * POST /api/pronunciation/check
  */
 export const checkPronunciation = async (req, res) => {
-  let audioPath;
-
   try {
     const userId = req.user.id;
-    const audioFile = req.file;
+    const audioBuffer = req.file?.buffer;
     const targetWord = req.body.word?.trim();
 
-    if (!audioFile) {
+    /* ---------- VALIDATION ---------- */
+    if (!audioBuffer) {
       return res.status(400).json({ message: "Audio file required" });
     }
 
@@ -26,75 +25,71 @@ export const checkPronunciation = async (req, res) => {
       return res.status(400).json({ message: "Target word is required" });
     }
 
-    audioPath = audioFile.path;
-
-    // 🔹 User preferences
+    /* ---------- USER PREFS ---------- */
     const user = await User.findById(userId).lean();
+
     const learningLang =
       req.body.language || user?.languagePreference || "en";
+
     const nativeLang = user?.nativeLanguage || "en";
 
-    // 1️⃣ Speech → Text
-    const transcript = await transcribeAudio(audioPath, learningLang);
+    /* ---------- SPEECH → TEXT ---------- */
+    const transcript = await transcribeAudioBuffer(audioBuffer, {
+      primaryLang: mapLangToTTSCode(learningLang),
+    });
 
-    // 2️⃣ If transcript unclear → LLM guidance only
+    /* ---------- UNCLEAR SPEECH ---------- */
     if (!transcript || transcript.trim().length < 2) {
       const feedback = await evaluateUnclearPronunciation({
         targetWord,
         learningLang,
-        nativeLang
+        nativeLang,
       });
-
-      cleanup(audioPath);
 
       return res.json({
         targetWord,
         transcript: "",
         feedback,
         referenceAudio: null,
-        status: "success"
+        status: "success",
       });
     }
 
-    // 3️⃣ Normal pronunciation evaluation
+    /* ---------- PRONUNCIATION CHECK ---------- */
     let feedback = await evaluatePronunciation({
       transcript,
       targetWord,
       learningLang,
-      nativeLang
+      nativeLang,
     });
 
-    // 4️⃣ If LLM response invalid → fallback to LLM again
+    /* ---------- FALLBACK ---------- */
     if (!feedback || typeof feedback.score !== "number") {
       feedback = await evaluateUnclearPronunciation({
         targetWord,
         learningLang,
-        nativeLang
+        nativeLang,
       });
     }
 
-    // 5️⃣ Correct pronunciation audio (always target word)
+    /* ---------- REFERENCE AUDIO ---------- */
     const referenceAudio = await synthesizeToBase64(
       targetWord,
       mapLangToTTSCode(learningLang)
     );
-
-    cleanup(audioPath);
 
     return res.json({
       targetWord,
       transcript,
       feedback,
       referenceAudio,
-      status: "success"
+      status: "success",
     });
 
   } catch (err) {
     console.error("Pronunciation Error:", err);
-    if (audioPath) cleanup(audioPath);
-
     return res.status(500).json({
-      message: "Pronunciation check failed"
+      message: "Pronunciation check failed",
     });
   }
 };
