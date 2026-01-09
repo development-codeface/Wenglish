@@ -5,13 +5,11 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const client = new textToSpeech.TextToSpeechClient({
-  keyFilename: path.join(
-    __dirname,
-    "../keys/weenglish-6bb28-92b6c109b652.json"
-  ),
-});
+const credentials = JSON.parse(
+  Buffer.from(process.env.GOOGLE_SPEECH_CREDENTIALS, "base64").toString("utf8")
+);
 
+const client = new textToSpeech.TextToSpeechClient({ credentials });
 
 export async function synthesizeToBase64(
   text,

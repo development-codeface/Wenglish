@@ -6,11 +6,13 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const credentials = JSON.parse(
+  Buffer.from(process.env.GOOGLE_SPEECH_CREDENTIALS, "base64").toString("utf8")
+);
+
+
 const client = new speech.SpeechClient({
-  keyFilename: path.join(
-    __dirname,
-    "../keys/weenglish-6bb28-92b6c109b652.json"
-  ),
+  credentials,
 });
 
 export async function transcribeAudio(filePath, language = "en") {
