@@ -30,7 +30,7 @@ export const createUploader = (
     storage,
     fileFilter,
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10 MB (safe for audio)
+      fileSize: 1024 * 1024 * 1024, // 1 GB
     },
   });
 };
