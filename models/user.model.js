@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema(
       startDate: { type: Date },
       endDate: { type: Date },
       isActive: { type: Boolean, default: false },
-      planName: { type: String }, 
+      planName: { type: String },
     },
     lastActive: { type: Date, default: null },
     profileImage: { type: String, default: "" },
@@ -29,9 +29,13 @@ const userSchema = new mongoose.Schema(
     whyLearn: { type: [String] },
     isVerified: { type: Boolean, default: false },
     usageHistory: [{ type: Date }],
-    isOnboardingComplete: { type: Boolean, default: false }, 
+    isOnboardingComplete: { type: Boolean, default: false },
     fcmToken: { type: String },
     active: { type: Boolean, default: true },
+    refreshToken: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );
