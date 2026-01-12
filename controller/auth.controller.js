@@ -75,50 +75,64 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
-    const { email, password ,fcmToken} = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const { email, password, fcmToken } = req.body;
 
-    // Check if email is verified
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ message: "User not found" });
+
     if (!user.isVerified) {
-      return res
-        .status(403)
-        .json({
-          message:
-            "Email not verified. Please verify your email before logging in.",
-        });
+      return res.status(403).json({
+        message: "Email not verified. Please verify your email before logging in.",
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(401).json({ message: "Invalid credentials" ,status:"false"});
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+        status: "false",
+      });
+    }
 
-    const token = jwt.sign(
+    // 🔐 ACCESS TOKEN (short-lived)
+    const accessToken = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "15m" }
     );
 
-  if (fcmToken) {
-  // Check if token exists for ANY user (globally unique)
-  const exists = await FCMToken.findOne({ token: fcmToken });
+    // 🔁 REFRESH TOKEN (long-lived)
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "30d" }
+    );
 
-  if (!exists) {
-    // Create new token entry
-    await FCMToken.create({
-      user: user._id,
-      token: fcmToken
-    });
-  } else {
-    exists.user = user._id;
-    exists.lastUsedAt = new Date();
-    await exists.save();
-  }
-}
+    // Save refresh token
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    // 📱 FCM TOKEN HANDLING (unchanged)
+    if (fcmToken) {
+      const exists = await FCMToken.findOne({ token: fcmToken });
+
+      if (!exists) {
+        await FCMToken.create({
+          user: user._id,
+          token: fcmToken,
+        });
+      } else {
+        exists.user = user._id;
+        exists.lastUsedAt = new Date();
+        await exists.save();
+      }
+    }
 
     res.status(200).json({
       message: "Login successful",
-      token,
+      accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -130,5 +144,80 @@ export const loginUser = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message, status: "false" });
+  }
+};
+
+export const refreshLoginToken = async (req, res) => {
+  try {
+    const { refresh } = req.body;
+
+    // 1️⃣ Check request body
+    if (!refresh) {
+      return res.status(400).json({
+        message: "Refresh token is required",
+      });
+    }
+
+    // 2️⃣ Verify refresh token signature & expiry
+    let decoded;
+    try {
+      decoded = jwt.verify(refresh, process.env.JWT_REFRESH_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        message: "Refresh token expired or invalid",
+      });
+    }
+
+    // 3️⃣ Validate decoded payload
+    if (!decoded?.id) {
+      return res.status(403).json({
+        message: "Invalid refresh token payload",
+      });
+    }
+
+    // 4️⃣ Fetch user
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // 5️⃣ Match refresh token with DB (rotation check)
+    if (!user.refreshToken || user.refreshToken !== refresh) {
+      return res.status(403).json({
+        message: "Invalid refresh token",
+      });
+    }
+
+    // 6️⃣ Generate new tokens
+    const newAccessToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    // 7️⃣ Rotate refresh token
+    user.refreshToken = newRefreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    // 8️⃣ Success response
+    return res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+
+  } catch (err) {
+    console.error("Refresh token error:", err);
+
+    return res.status(500).json({
+      message: "Something went wrong while refreshing token",
+    });
   }
 };
