@@ -131,7 +131,7 @@ export const loginUser = async (req, res) => {
 
     res.status(200).json({
       message: "Login successful",
-      accessToken,
+      token:accessToken,
       refreshToken,
       user: {
         id: user._id,
