@@ -1,27 +1,31 @@
 import admin from "firebase-admin";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 
-// 1. Function to decode the Base64 ENV variable safely
-const getFirebaseCredentials = () => {
-  try {
-    const base64Str = process.env.FIREBASE_CREDENTIALS;
-    
-    if (!base64Str) {
-      throw new Error("FIREBASE_CREDENTIALS environment variable is missing!");
-    }
+// Needed because you're using ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-    // Decodes the string back into JSON
-    const decodedJson = Buffer.from(base64Str, "base64").toString("utf8");
-    return JSON.parse(decodedJson);
-  } catch (error) {
-    console.error("Firebase Admin Init Error:", error.message);
-    // If it fails, the app will crash here with a clear message
-    throw error;
-  }
-};
+// Absolute path to JSON key
+const serviceAccountPath = path.join(
+  __dirname,
+  "../keys/weenglish-6bb28-firebase-adminsdk-fbsvc-b16ad4b7ed.json"
+);
 
-// 2. Initialize using the decoded object
+// Safety check
+if (!fs.existsSync(serviceAccountPath)) {
+  throw new Error("Firebase service account key file not found");
+}
+
+// Load JSON
+const serviceAccount = JSON.parse(
+  fs.readFileSync(serviceAccountPath, "utf8")
+);
+
+// Initialize Firebase Admin
 admin.initializeApp({
-  credential: admin.credential.cert(getFirebaseCredentials()),
+  credential: admin.credential.cert(serviceAccount),
 });
 
 export default admin;
