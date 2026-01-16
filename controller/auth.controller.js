@@ -131,7 +131,7 @@ export const loginUser = async (req, res) => {
 
     res.status(200).json({
       message: "Login successful",
-      accessToken,
+      token:accessToken,
       refreshToken,
       user: {
         id: user._id,
@@ -218,6 +218,39 @@ export const refreshLoginToken = async (req, res) => {
 
     return res.status(500).json({
       message: "Something went wrong while refreshing token",
+    });
+  }
+};
+
+export const toggleUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select("active");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user.active = !user.active;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `User has been ${user.active ? "activated" : "deactivated"} successfully`,
+      data: {
+        userId: user._id,
+        active: user.active,
+      },
+    });
+  } catch (error) {
+    console.error("Toggle user status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };
