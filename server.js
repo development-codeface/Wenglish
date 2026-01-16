@@ -36,6 +36,7 @@ import generalChat from './routes/generalChat.routes.js';
 import nativeLanguage from './routes/nativeLang.routes.js';
 import pronounciation from './routes/pronounciation.routes.js';
 import dailyLimit from './routes/dailyLimit.routes.js';
+import rechargePlan from './routes/rechargePlans.routes.js'
 
 dotenv.config();
 connectDB();
@@ -84,6 +85,7 @@ app.use("/api/push-messages", pushMessages);
 app.use("/api/general-chat", generalChat);
 app.use("/api/pronunciation", pronounciation);
 app.use("/api/daily-limit", dailyLimit);
+app.use("/api/plans", rechargePlan)
 
 const server = http.createServer(app);
 app.use(express.static("public"));
