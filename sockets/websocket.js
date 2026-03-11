@@ -13,6 +13,21 @@ import { synthesizeToBase64 } from "../services/ttsService.js";
 import ChatSession from "../models/chatSession.model.js";
 import ChatMessage from "../models/chat.model.js";
 
+function cleanTextForSpeech(text = "") {
+  return String(text)
+    .replace(/```/g, "")
+    .replace(/`+/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/#+\s?/g, "")
+    .replace(/[*]+/g, "")
+    .replace(/_+/g, " ")
+    .replace(/(^|[^:])\/\/+/g, "$1")
+    .replace(/[-–—]{2,}/g, ", ")
+    .replace(/\n+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // 🎙 Google Speech Client
 const client = new speech.SpeechClient({
   keyFilename: path.join(
@@ -173,13 +188,16 @@ export const initVoiceChatSocket = (httpServer) => {
                   //   console.error('Error saving bot message:', dbError);
                   // }
                   
+                  const cleanedAiReply = cleanTextForSpeech(botData.aiReply);
+                  const ttsText = cleanedAiReply || botData.aiReply;
+                  
                   // Convert to speech
-                  const audio = await synthesizeToBase64(botData.aiReply, "ml-IN");
+                  const audio = await synthesizeToBase64(ttsText, "ml-IN");
                   
                   // Send to client
                   socket.emit('botMessage', {
                     transcript: botData.correctedTranscript || normalizedTranscript,
-                    text: botData.aiReply,
+                    text: cleanedAiReply || botData.aiReply,
                     audio: audio,
                     confidence: confidence,
                   });
