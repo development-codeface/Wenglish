@@ -6,6 +6,21 @@ import GrammarSubtopic from "../models/grammerSubTopic.model.js";
 import GrammarChatHistory from "../models/grammerChatHistory.model.js";
 import GeneralChatHistory from "../models/generalChat.model.js";
 
+function cleanTextForSpeech(text = "") {
+  return String(text)
+    .replace(/```/g, "")
+    .replace(/`+/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/#+\s?/g, "")
+    .replace(/[*]+/g, "")
+    .replace(/_+/g, " ")
+    .replace(/(^|[^:])\/\/+/g, "$1")
+    .replace(/[-–—]{2,}/g, ", ")
+    .replace(/\n+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 
 
 const model = new ChatGoogleGenerativeAI({
@@ -140,8 +155,8 @@ ${cleaned}
 
     return {
       reply: {
-        preferred: parsedReply.preferred || "",
-        native: parsedReply.native || ""
+        preferred: cleanTextForSpeech(parsedReply.preferred || ""),
+        native: cleanTextForSpeech(parsedReply.native || "")
       },
       correctedInput: cleanSentence
     };
@@ -183,7 +198,7 @@ export const getResponseFromLLM = async (transcript, conversationHistory) => {
 
   return {
     correctedTranscript: transcript,
-    aiReply,
+    aiReply: cleanTextForSpeech(aiReply),
   };
 };
 
@@ -296,8 +311,8 @@ Only JSON.
     }
 
     return {
-      replyNative: parsed.replyNative,
-      replyLearning: parsed.replyLearning,
+      replyNative: cleanTextForSpeech(parsed.replyNative),
+      replyLearning: cleanTextForSpeech(parsed.replyLearning),
       stage: parsed.stage,
       questionNumber: parsed.questionNumber,
       correctedInput: userInput,
@@ -346,7 +361,7 @@ Keep responses short, thoughtful, and human-like.
 `);
   const user = new HumanMessage(prompt);
   const result = await model.invoke([system, user]);
-  return result.content;
+  return cleanTextForSpeech(result.content);
 }
 
 export const getGeneralChatResponse = async (userId, userInput) => {
@@ -437,7 +452,7 @@ Keep responses short, caring, and human-like.
 
     await chat.save();
 
-    return reply;
+    return cleanTextForSpeech(reply);
 
   } catch (err) {
     console.error("General Chat Error:", err);
@@ -550,7 +565,13 @@ JSON FORMAT (strict):
     new HumanMessage("Evaluate pronunciation.")
   ]);
 
-  return fixJSON(result.content);
+  const parsed = fixJSON(result.content);
+  if (!parsed) return parsed;
+  return {
+    ...parsed,
+    replyLearning: cleanTextForSpeech(parsed.replyLearning),
+    replyNative: cleanTextForSpeech(parsed.replyNative),
+  };
 };
 
 export const evaluateUnclearPronunciation = async ({
@@ -601,15 +622,14 @@ JSON FORMAT:
     new HumanMessage("Provide pronunciation guidance.")
   ]);
 
-  return fixJSON(result.content);
+  const parsed = fixJSON(result.content);
+  if (!parsed) return parsed;
+  return {
+    ...parsed,
+    replyLearning: cleanTextForSpeech(parsed.replyLearning),
+    replyNative: cleanTextForSpeech(parsed.replyNative),
+  };
 };
-
-
-
-
-
-
-
 
 
 

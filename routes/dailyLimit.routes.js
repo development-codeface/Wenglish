@@ -4,25 +4,25 @@ import {
   checkUserDuration,
   startCall,
   stopCall,
-  rechargeUserController,
+  rechargeUser,
+  getRechargeHistory,
 } from "../controller/dailyLimict.controller.js";
 
 const router = express.Router();
 
-router.get("/call/check", authMiddleware, (req, res) => {
-  return checkUserDuration(req.user._id).then(res.json.bind(res));
-});
+// Check user's remaining call duration
+router.get("/call/check", authMiddleware, checkUserDuration);
 
-router.post("/call/start", authMiddleware, (req, res) => {
-  return startCall(req.user._id).then(res.json.bind(res));
-});
+// Start a call session
+router.post("/call/start", authMiddleware, startCall);
 
-router.post("/call/stop", authMiddleware, (req, res) => {
-  return stopCall(req.user._id).then(res.json.bind(res));
-});
+// Stop the active call session
+router.post("/call/stop", authMiddleware, stopCall);
 
-router.post("/call/recharge", authMiddleware, (req, res) => {
-  return rechargeUserController(req.user._id, 60).then(res.json.bind(res));
-});
+// User recharge their own account
+router.post("/call/recharge", authMiddleware, rechargeUser);
+
+// History recharge
+router.get("/call/history", authMiddleware,getRechargeHistory)
 
 export default router;
